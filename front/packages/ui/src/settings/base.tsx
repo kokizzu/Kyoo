@@ -18,7 +18,7 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { User, queryFn, useAccount } from "@kyoo/models";
+import { type User, queryFn, useAccount } from "@kyoo/models";
 import {
 	Container,
 	H1,
@@ -31,9 +31,9 @@ import {
 	ts,
 } from "@kyoo/primitives";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Children, ReactElement, ReactNode } from "react";
-import { Falsy, View } from "react-native";
-import { px, rem, useYoshiki } from "yoshiki/native";
+import { Children, type ReactElement, type ReactNode } from "react";
+import { type Falsy, View } from "react-native";
+import { percent, px, rem, useYoshiki } from "yoshiki/native";
 
 export const Preference = ({
 	customIcon,
@@ -79,7 +79,18 @@ export const Preference = ({
 					<SubP>{description}</SubP>
 				</View>
 			</View>
-			<View {...css({ marginX: ts(2), flexDirection: "row", gap: ts(1) })}>{children}</View>
+			<View
+				{...css({
+					marginX: ts(2),
+					flexDirection: "row",
+					justifyContent: "flex-end",
+					gap: ts(1),
+					maxWidth: percent(50),
+					flexWrap: "wrap",
+				})}
+			>
+				{children}
+			</View>
 		</View>
 	);
 };
@@ -88,17 +99,20 @@ export const SettingsContainer = ({
 	children,
 	title,
 	extra,
+	extraTop,
 	...props
 }: {
 	children: ReactElement | (ReactElement | Falsy)[] | Falsy;
 	title: string;
 	extra?: ReactElement;
+	extraTop?: ReactElement;
 }) => {
 	const { css } = useYoshiki();
 
 	return (
 		<Container {...props}>
 			<H1 {...css({ fontSize: rem(2) })}>{title}</H1>
+			{extraTop}
 			<SwitchVariant>
 				{({ css }) => (
 					<View

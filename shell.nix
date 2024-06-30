@@ -10,6 +10,7 @@
       requests
       dataclasses-json
       msgspec
+      langcodes
     ]);
   dotnet = with pkgs.dotnetCorePackages;
     combinePackages [
@@ -31,12 +32,10 @@ in
       go
       wgo
       mediainfo
-      libmediainfo
       ffmpeg-full
       postgresql_15
-      eslint_d
-      prettierd
       pgformatter
+      biome
     ];
 
     DOTNET_ROOT = "${dotnet}";

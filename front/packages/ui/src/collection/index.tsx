@@ -19,26 +19,34 @@
  */
 
 import {
-	Collection,
+	type Collection,
 	CollectionP,
-	LibraryItem,
+	type LibraryItem,
 	LibraryItemP,
-	QueryIdentifier,
-	QueryPage,
+	type QueryIdentifier,
+	type QueryPage,
 	getDisplayDate,
 } from "@kyoo/models";
-import { Header as ShowHeader, TitleLine } from "../details/header";
-import { Container, Head, ImageBackground, P, Skeleton, ts, usePageStyle } from "@kyoo/primitives";
-import { percent, px, useYoshiki } from "yoshiki/native";
-import { useTranslation } from "react-i18next";
+import {
+	Container,
+	GradientImageBackground,
+	Head,
+	P,
+	Skeleton,
+	ts,
+	usePageStyle,
+} from "@kyoo/primitives";
 import { forwardRef } from "react";
-import { Platform, View, ViewProps } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Platform, View, type ViewProps } from "react-native";
+import { percent, px, useYoshiki } from "yoshiki/native";
+import { ItemGrid } from "../browse/grid";
+import { Header as ShowHeader, TitleLine } from "../details/header";
+import { SvgWave } from "../details/show";
 import { Fetch } from "../fetch";
 import { InfiniteFetch } from "../fetch-infinite";
-import { DefaultLayout } from "../layout";
 import { ItemDetails } from "../home/recommended";
-import { SvgWave } from "../details/show";
-import { ItemGrid } from "../browse/grid";
+import { DefaultLayout } from "../layout";
 
 const Header = ({ slug }: { slug: string }) => {
 	const { css } = useYoshiki();
@@ -50,7 +58,7 @@ const Header = ({ slug }: { slug: string }) => {
 				<>
 					<Head title={data?.name} description={data?.overview} image={data?.thumbnail?.high} />
 
-					<ImageBackground
+					<GradientImageBackground
 						src={data?.thumbnail}
 						quality="high"
 						alt=""
@@ -70,7 +78,7 @@ const Header = ({ slug }: { slug: string }) => {
 							studio={null}
 							{...css(ShowHeader.childStyle)}
 						/>
-					</ImageBackground>
+					</GradientImageBackground>
 
 					<Container
 						{...css({
@@ -155,30 +163,29 @@ export const CollectionPage: QueryPage<{ slug: string }> = ({ slug }) => {
 			Header={CollectionHeader}
 			headerProps={{ slug }}
 			contentContainerStyle={{ padding: 0, paddingHorizontal: 0, ...pageStyle }}
-		>
-			{(x) => (
+			Render={({ item }) => (
 				<ItemDetails
-					isLoading={x.isLoading as any}
-					slug={x.slug}
-					type={x.kind}
-					name={x.name}
-					tagline={"tagline" in x ? x.tagline : null}
-					overview={x.overview}
-					poster={x.poster}
-					subtitle={x.kind !== "collection" && !x.isLoading ? getDisplayDate(x) : undefined}
-					genres={"genres" in x ? x.genres : null}
-					href={x.href}
-					playHref={x.kind !== "collection" && !x.isLoading ? x.playHref : undefined}
-					watchStatus={
-						!x.isLoading && x.kind !== "collection" ? x.watchStatus?.status ?? null : null
-					}
+					slug={item.slug}
+					type={item.kind}
+					name={item.name}
+					tagline={"tagline" in item ? item.tagline : null}
+					overview={item.overview}
+					poster={item.poster}
+					subtitle={item.kind !== "collection" ? getDisplayDate(item) : null}
+					genres={"genres" in item ? item.genres : null}
+					href={item.href}
+					playHref={item.kind !== "collection" ? item.playHref : null}
+					watchStatus={(item.kind !== "collection" && item.watchStatus?.status) || null}
 					unseenEpisodesCount={
-						x.kind === "show" ? x.watchStatus?.unseenEpisodesCount ?? x.episodesCount! : null
+						item.kind === "show"
+							? item.watchStatus?.unseenEpisodesCount ?? item.episodesCount!
+							: null
 					}
 					{...css({ marginX: ItemGrid.layout.gap })}
 				/>
 			)}
-		</InfiniteFetch>
+			Loader={ItemDetails.Loader}
+		/>
 	);
 };
 

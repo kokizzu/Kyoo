@@ -18,9 +18,9 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { Platform } from "react-native";
 import { z } from "zod";
 import { imageFn } from "..";
-import { Platform } from "react-native";
 
 export const OidcInfoP = z.object({
 	/*
@@ -32,6 +32,12 @@ export const OidcInfoP = z.object({
 	 */
 	logoUrl: z.string().nullable(),
 });
+
+export enum SetupStep {
+	MissingAdminAccount = "MissingAdminAccount",
+	NoVideoFound = "NoVideoFound",
+	Done = "Done",
+}
 
 export const ServerInfoP = z
 	.object({
@@ -51,6 +57,10 @@ export const ServerInfoP = z
 		 * The list of oidc providers configured for this instance of kyoo.
 		 */
 		oidc: z.record(z.string(), OidcInfoP),
+		/*
+		 * Check if kyoo's setup is finished.
+		 */
+		setupStatus: z.nativeEnum(SetupStep),
 	})
 	.transform((x) => {
 		const baseUrl = Platform.OS === "web" ? x.publicUrl : "kyoo://";

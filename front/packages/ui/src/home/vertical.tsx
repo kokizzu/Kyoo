@@ -18,15 +18,15 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { LibraryItem, LibraryItemP, QueryIdentifier } from "@kyoo/models";
+import { type LibraryItem, LibraryItemP, type QueryIdentifier } from "@kyoo/models";
 import { H3 } from "@kyoo/primitives";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useYoshiki } from "yoshiki/native";
-import { InfiniteFetch } from "../fetch-infinite";
-import { ItemList } from "../browse/list";
-import { useTranslation } from "react-i18next";
-import { ItemGrid } from "../browse/grid";
 import { itemMap } from "../browse";
+import { ItemGrid } from "../browse/grid";
+import { ItemList } from "../browse/list";
+import { InfiniteFetch } from "../fetch-infinite";
 
 export const VerticalRecommended = () => {
 	const { t } = useTranslation();
@@ -41,9 +41,9 @@ export const VerticalRecommended = () => {
 				layout={{ ...ItemList.layout, layout: "vertical" }}
 				fetchMore={false}
 				nested
-			>
-				{(x, i) => <ItemList key={x.id ?? i} {...itemMap(x)} />}
-			</InfiniteFetch>
+				Render={({ item }) => <ItemList {...itemMap(item)} />}
+				Loader={() => <ItemList.Loader />}
+			/>
 		</View>
 	);
 };

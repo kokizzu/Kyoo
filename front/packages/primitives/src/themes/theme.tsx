@@ -18,20 +18,17 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ReactNode } from "react";
-import { Property } from "csstype";
-import { Theme, ThemeProvider, useAutomaticTheme } from "yoshiki";
-import { useTheme, useYoshiki } from "yoshiki/native";
+import type { Property } from "csstype";
+import type { ReactNode } from "react";
+import { Platform, type TextStyle } from "react-native";
+import { type Theme, ThemeProvider, useAutomaticTheme } from "yoshiki";
 import "yoshiki";
+import { useTheme, useYoshiki } from "yoshiki/native";
 import "yoshiki/native";
 import { catppuccin } from "./catppuccin";
-import { Platform } from "react-native";
 
 type FontList = Partial<
-	Record<
-		"normal" | "bold" | "100" | "200" | "300" | "400" | "500" | "600" | "700" | "800" | "900",
-		string
-	>
+	Record<Exclude<TextStyle["fontWeight"], null | undefined | number>, string>
 >;
 
 type Mode = {
@@ -111,9 +108,7 @@ const selectMode = (
 		};
 	}
 
-	// eslint-disable-next-line react-hooks/rules-of-hooks
 	const auto = useAutomaticTheme("theme", { light, dark });
-	// eslint-disable-next-line react-hooks/rules-of-hooks
 	const alternate = useAutomaticTheme("alternate", { dark: light, light: dark });
 	return {
 		...options,
@@ -152,7 +147,7 @@ export const ThemeSelector = ({
 }) => {
 	const newTheme = selectMode({ ...catppuccin, font }, theme);
 
-	return <ThemeProvider theme={newTheme}>{children}</ThemeProvider>;
+	return <ThemeProvider theme={newTheme}>{children as any}</ThemeProvider>;
 };
 
 export type YoshikiFunc<T> = (props: ReturnType<typeof useYoshiki>) => T;
@@ -167,7 +162,11 @@ export const SwitchVariant = ({ children }: { children: ReactNode | YoshikiFunc<
 
 	return (
 		<ThemeProvider theme={switchVariant(theme)}>
-			{typeof children === "function" ? <YoshikiProvider>{children}</YoshikiProvider> : children}
+			{typeof children === "function" ? (
+				<YoshikiProvider>{children}</YoshikiProvider>
+			) : (
+				(children as any)
+			)}
 		</ThemeProvider>
 	);
 };
@@ -199,7 +198,11 @@ export const ContrastArea = ({
 					: theme
 			}
 		>
-			{typeof children === "function" ? <YoshikiProvider>{children}</YoshikiProvider> : children}
+			{typeof children === "function" ? (
+				<YoshikiProvider>{children}</YoshikiProvider>
+			) : (
+				(children as any)
+			)}
 		</ThemeProvider>
 	);
 };

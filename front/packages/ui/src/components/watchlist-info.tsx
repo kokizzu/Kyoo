@@ -18,15 +18,15 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { WatchStatusV, queryFn, useAccount } from "@kyoo/models";
 import { IconButton, Menu, tooltip } from "@kyoo/primitives";
-import { ComponentProps } from "react";
-import { useTranslation } from "react-i18next";
-import BookmarkAdd from "@material-symbols/svg-400/rounded/bookmark_add.svg";
 import Bookmark from "@material-symbols/svg-400/rounded/bookmark-fill.svg";
+import BookmarkAdd from "@material-symbols/svg-400/rounded/bookmark_add.svg";
 import BookmarkAdded from "@material-symbols/svg-400/rounded/bookmark_added-fill.svg";
 import BookmarkRemove from "@material-symbols/svg-400/rounded/bookmark_remove.svg";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { WatchStatusV, queryFn, useAccount } from "@kyoo/models";
+import type { ComponentProps } from "react";
+import { useTranslation } from "react-i18next";
 
 export const watchListIcon = (status: WatchStatusV | null) => {
 	switch (status) {
@@ -104,7 +104,7 @@ export const WatchListInfo = ({
 					{Object.values(WatchStatusV).map((x) => (
 						<Menu.Item
 							key={x}
-							label={t(`show.watchlistMark.${x.toLowerCase()}`)}
+							label={t(`show.watchlistMark.${x.toLowerCase() as Lowercase<WatchStatusV>}`)}
 							onSelect={() => mutation.mutate(x)}
 							selected={x === status}
 						/>

@@ -18,14 +18,12 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ComponentType, useMemo } from "react";
-import i18next, { InitOptions } from "i18next";
+import { readCookie } from "@kyoo/models/src/account-internal";
+import i18next, { type InitOptions } from "i18next";
+import type { AppContext, AppInitialProps, AppProps } from "next/app";
+import { type ComponentType, useState } from "react";
 import { I18nextProvider } from "react-i18next";
-import { AppContext, AppInitialProps, type AppProps } from "next/app";
-
-import en from "../../../translations/en.json";
-import fr from "../../../translations/fr.json";
-import zh from "../../../translations/zh.json";
+import resources from "../../../translations";
 
 export const withTranslations = (
 	AppToTranslate: ComponentType<AppProps> & {
@@ -37,21 +35,21 @@ export const withTranslations = (
 		interpolation: {
 			escapeValue: false,
 		},
+		returnEmptyString: false,
+		fallbackLng: "en",
+		resources,
 	};
 
 	const AppWithTranslations = (props: AppProps) => {
-		const li18n = useMemo(
-			() =>
-				typeof window === "undefined"
-					? i18n
-					: (i18next.init({
-							...commonOptions,
-							lng: props.pageProps.__lang,
-							resources: props.pageProps.__resources,
-						}),
-						i18next),
-			[props.pageProps.__lang, props.pageProps.__resources],
-		);
+		const [li18n] = useState(() => {
+			if (typeof window === "undefined") return i18n;
+			i18next.init({
+				...commonOptions,
+				lng: props.pageProps.__lang,
+			});
+			i18next.systemLanguage = props.pageProps.__sysLang;
+			return i18next;
+		});
 
 		return (
 			<I18nextProvider i18n={li18n}>
@@ -61,22 +59,15 @@ export const withTranslations = (
 	};
 	AppWithTranslations.getInitialProps = async (ctx: AppContext) => {
 		const props: AppInitialProps = await AppToTranslate.getInitialProps(ctx);
-		const lng = ctx.router.locale || ctx.router.defaultLocale || "en";
-		// TODO: use a backend to fetch only the needed translations.
-		// TODO: use a different backend on the client and fetch needed translations.
-		const resources = {
-			en: { translation: en },
-			fr: { translation: fr },
-			zh: { translation: zh },
-		};
+		const sysLng = ctx.router.locale || ctx.router.defaultLocale || "en";
+		const lng = readCookie(ctx.ctx.req?.headers.cookie, "language") || sysLng;
 		await i18n.init({
 			...commonOptions,
 			lng,
-			fallbackLng: ctx.router.defaultLocale || "en",
-			resources,
 		});
+		i18n.systemLanguage = sysLng;
 		props.pageProps.__lang = lng;
-		props.pageProps.__resources = resources;
+		props.pageProps.__sysLang = sysLng;
 		return props;
 	};
 

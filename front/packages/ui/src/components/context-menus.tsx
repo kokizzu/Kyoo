@@ -26,7 +26,7 @@ import Info from "@material-symbols/svg-400/rounded/info.svg";
 import MoreVert from "@material-symbols/svg-400/rounded/more_vert.svg";
 import MovieInfo from "@material-symbols/svg-400/rounded/movie_info.svg";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ComponentProps } from "react";
+import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform } from "react-native";
 import { useYoshiki } from "yoshiki/native";
@@ -95,7 +95,7 @@ export const EpisodesContext = ({
 					{Object.values(WatchStatusV).map((x) => (
 						<Menu.Item
 							key={x}
-							label={t(`show.watchlistMark.${x.toLowerCase()}`)}
+							label={t(`show.watchlistMark.${x.toLowerCase() as Lowercase<WatchStatusV>}`)}
 							onSelect={() => mutation.mutate(x)}
 							selected={x === status}
 						/>

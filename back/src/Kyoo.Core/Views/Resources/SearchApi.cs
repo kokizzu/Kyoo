@@ -34,7 +34,7 @@ namespace Kyoo.Core.Api;
 /// </summary>
 [Route("search")]
 [ApiController]
-[ApiDefinition("Search", Group = ResourcesGroup)]
+[ApiDefinition("Search", Group = OtherGroup)]
 public class SearchApi : BaseApi
 {
 	private readonly ISearchManager _searchManager;
@@ -44,7 +44,7 @@ public class SearchApi : BaseApi
 		_searchManager = searchManager;
 	}
 
-	// TODO: add filters and facets
+	// TODO: add facets
 
 	/// <summary>
 	/// Search collections
@@ -60,16 +60,19 @@ public class SearchApi : BaseApi
 	[HttpGet("collections")]
 	[HttpGet("collection", Order = AlternativeRoute)]
 	[Permission(nameof(Collection), Kind.Read)]
-	[ApiDefinition("Collections")]
+	[ApiDefinition("Collections", Group = ResourcesGroup)]
 	[ProducesResponseType(StatusCodes.Status200OK)]
 	public async Task<SearchPage<Collection>> SearchCollections(
 		[FromQuery] string? q,
 		[FromQuery] Sort<Collection> sortBy,
+		[FromQuery] Filter<ILibraryItem>? filter,
 		[FromQuery] SearchPagination pagination,
 		[FromQuery] Include<Collection> fields
 	)
 	{
-		return SearchPage(await _searchManager.SearchCollections(q, sortBy, pagination, fields));
+		return SearchPage(
+			await _searchManager.SearchCollections(q, sortBy, filter, pagination, fields)
+		);
 	}
 
 	/// <summary>
@@ -86,16 +89,17 @@ public class SearchApi : BaseApi
 	[HttpGet("shows")]
 	[HttpGet("show", Order = AlternativeRoute)]
 	[Permission(nameof(Show), Kind.Read)]
-	[ApiDefinition("Show")]
+	[ApiDefinition("Shows", Group = ResourcesGroup)]
 	[ProducesResponseType(StatusCodes.Status200OK)]
 	public async Task<SearchPage<Show>> SearchShows(
 		[FromQuery] string? q,
 		[FromQuery] Sort<Show> sortBy,
+		[FromQuery] Filter<ILibraryItem>? filter,
 		[FromQuery] SearchPagination pagination,
 		[FromQuery] Include<Show> fields
 	)
 	{
-		return SearchPage(await _searchManager.SearchShows(q, sortBy, pagination, fields));
+		return SearchPage(await _searchManager.SearchShows(q, sortBy, filter, pagination, fields));
 	}
 
 	/// <summary>
@@ -112,16 +116,17 @@ public class SearchApi : BaseApi
 	[HttpGet("movies")]
 	[HttpGet("movie", Order = AlternativeRoute)]
 	[Permission(nameof(Movie), Kind.Read)]
-	[ApiDefinition("Movie")]
+	[ApiDefinition("Movies", Group = ResourcesGroup)]
 	[ProducesResponseType(StatusCodes.Status200OK)]
 	public async Task<SearchPage<Movie>> SearchMovies(
 		[FromQuery] string? q,
 		[FromQuery] Sort<Movie> sortBy,
+		[FromQuery] Filter<ILibraryItem>? filter,
 		[FromQuery] SearchPagination pagination,
 		[FromQuery] Include<Movie> fields
 	)
 	{
-		return SearchPage(await _searchManager.SearchMovies(q, sortBy, pagination, fields));
+		return SearchPage(await _searchManager.SearchMovies(q, sortBy, filter, pagination, fields));
 	}
 
 	/// <summary>
@@ -138,16 +143,17 @@ public class SearchApi : BaseApi
 	[HttpGet("items")]
 	[HttpGet("item", Order = AlternativeRoute)]
 	[Permission(nameof(ILibraryItem), Kind.Read)]
-	[ApiDefinition("Item")]
+	[ApiDefinition("Items", Group = ResourcesGroup)]
 	[ProducesResponseType(StatusCodes.Status200OK)]
 	public async Task<SearchPage<ILibraryItem>> SearchItems(
 		[FromQuery] string? q,
 		[FromQuery] Sort<ILibraryItem> sortBy,
+		[FromQuery] Filter<ILibraryItem>? filter,
 		[FromQuery] SearchPagination pagination,
 		[FromQuery] Include<ILibraryItem> fields
 	)
 	{
-		return SearchPage(await _searchManager.SearchItems(q, sortBy, pagination, fields));
+		return SearchPage(await _searchManager.SearchItems(q, sortBy, filter, pagination, fields));
 	}
 
 	/// <summary>
@@ -164,16 +170,19 @@ public class SearchApi : BaseApi
 	[HttpGet("episodes")]
 	[HttpGet("episode", Order = AlternativeRoute)]
 	[Permission(nameof(Episode), Kind.Read)]
-	[ApiDefinition("Episodes")]
+	[ApiDefinition("Episodes", Group = ResourcesGroup)]
 	[ProducesResponseType(StatusCodes.Status200OK)]
 	public async Task<SearchPage<Episode>> SearchEpisodes(
 		[FromQuery] string? q,
 		[FromQuery] Sort<Episode> sortBy,
+		[FromQuery] Filter<Episode>? filter,
 		[FromQuery] SearchPagination pagination,
 		[FromQuery] Include<Episode> fields
 	)
 	{
-		return SearchPage(await _searchManager.SearchEpisodes(q, sortBy, pagination, fields));
+		return SearchPage(
+			await _searchManager.SearchEpisodes(q, sortBy, filter, pagination, fields)
+		);
 	}
 
 	/// <summary>
@@ -190,15 +199,18 @@ public class SearchApi : BaseApi
 	[HttpGet("studios")]
 	[HttpGet("studio", Order = AlternativeRoute)]
 	[Permission(nameof(Studio), Kind.Read)]
-	[ApiDefinition("Studios")]
+	[ApiDefinition("Studios", Group = MetadataGroup)]
 	[ProducesResponseType(StatusCodes.Status200OK)]
 	public async Task<SearchPage<Studio>> SearchStudios(
 		[FromQuery] string? q,
 		[FromQuery] Sort<Studio> sortBy,
+		[FromQuery] Filter<Studio>? filter,
 		[FromQuery] SearchPagination pagination,
 		[FromQuery] Include<Studio> fields
 	)
 	{
-		return SearchPage(await _searchManager.SearchStudios(q, sortBy, pagination, fields));
+		return SearchPage(
+			await _searchManager.SearchStudios(q, sortBy, filter, pagination, fields)
+		);
 	}
 }

@@ -19,7 +19,6 @@
 using System.Text;
 using System.Text.Json;
 using Kyoo.Abstractions.Controllers;
-using Kyoo.Abstractions.Models;
 using Kyoo.Utils;
 using RabbitMQ.Client;
 
@@ -33,31 +32,20 @@ public class ScannerProducer : IScanner
 	{
 		_channel = rabbitConnection.CreateModel();
 		_channel.QueueDeclare("scanner", exclusive: false, autoDelete: false);
+		_channel.QueueDeclare("scanner.rescan", exclusive: false, autoDelete: false);
 	}
 
-	private IRepository<T>.ResourceEventHandler _Publish<T>(
-		string exchange,
-		string type,
-		string action
-	)
-		where T : IResource, IQuery
+	private Task _Publish<T>(T message, string queue = "scanner")
 	{
-		return (T resource) =>
-		{
-			Message<T> message =
-				new()
-				{
-					Action = action,
-					Type = type,
-					Value = resource,
-				};
-			_channel.BasicPublish(
-				exchange,
-				routingKey: message.AsRoutingKey(),
-				body: message.AsBytes()
-			);
-			return Task.CompletedTask;
-		};
+		var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message, Utility.JsonOptions));
+		_channel.BasicPublish("", routingKey: queue, body: body);
+		return Task.CompletedTask;
+	}
+
+	public Task SendRescanRequest()
+	{
+		var message = new { Action = "rescan", };
+		return _Publish(message, queue: "scanner.rescan");
 	}
 
 	public Task SendRefreshRequest(string kind, Guid id)
@@ -68,8 +56,6 @@ public class ScannerProducer : IScanner
 			Kind = kind.ToLowerInvariant(),
 			Id = id
 		};
-		var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message, Utility.JsonOptions));
-		_channel.BasicPublish("", routingKey: "scanner", body: body);
-		return Task.CompletedTask;
+		return _Publish(message);
 	}
 }

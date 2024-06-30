@@ -19,29 +19,29 @@
  */
 
 import {
-	Genre,
-	KyooImage,
-	Movie,
-	QueryIdentifier,
-	Show,
-	Studio,
+	type Genre,
+	type KyooImage,
+	type Movie,
+	type QueryIdentifier,
+	type Show,
+	type Studio,
 	getDisplayDate,
 	queryFn,
 	useAccount,
 } from "@kyoo/models";
-import { WatchStatusV } from "@kyoo/models/src/resources/watch-status";
+import type { WatchStatusV } from "@kyoo/models/src/resources/watch-status";
 import {
 	A,
 	Chip,
 	Container,
 	DottedSeparator,
+	GradientImageBackground,
 	H1,
 	H2,
 	HR,
 	Head,
 	IconButton,
 	IconFab,
-	ImageBackground,
 	LI,
 	Link,
 	Menu,
@@ -63,10 +63,10 @@ import Theaters from "@material-symbols/svg-400/rounded/theaters-fill.svg";
 import { useMutation } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
-import { ImageStyle, Platform, View } from "react-native";
+import { type ImageStyle, Platform, View } from "react-native";
 import {
-	Stylable,
-	Theme,
+	type Stylable,
+	type Theme,
 	em,
 	max,
 	md,
@@ -429,7 +429,7 @@ const Description = ({
 						{isLoading ? (
 							<Skeleton {...css({ width: rem(5) })} />
 						) : (
-							<A href={`/genres/${genre.toLowerCase()}`}>{genre}</A>
+							<A href={`/genres/${genre.toLowerCase()}`}>{t(`genres.${genre}`)}</A>
 						)}
 					</Fragment>
 				))}
@@ -481,7 +481,7 @@ const Description = ({
 								{isLoading ? (
 									<Skeleton {...css({ marginBottom: 0 })} />
 								) : (
-									<A href={`/genres/${genre.toLowerCase()}`}>{genre}</A>
+									<A href={`/genres/${genre.toLowerCase()}`}>{t(`genres.${genre}`)}</A>
 								)}
 							</LI>
 						))}
@@ -509,7 +509,7 @@ export const Header = ({
 			{({ isLoading, ...data }) => (
 				<>
 					<Head title={data?.name} description={data?.overview} image={data?.thumbnail?.high} />
-					<ImageBackground
+					<GradientImageBackground
 						src={data?.thumbnail}
 						quality="high"
 						alt=""
@@ -531,7 +531,7 @@ export const Header = ({
 							watchStatus={data?.watchStatus?.status ?? null}
 							{...css(Header.childStyle)}
 						/>
-					</ImageBackground>
+					</GradientImageBackground>
 					<Description
 						isLoading={isLoading}
 						overview={data?.overview}

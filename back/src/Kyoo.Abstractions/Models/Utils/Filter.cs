@@ -215,14 +215,16 @@ public abstract record Filter<T> : Filter
 					});
 			}
 
-			if (type == typeof(DateTime))
+			if (type == typeof(DateTime) || type == typeof(DateOnly))
 			{
 				return from year in Parse.Digit.Repeat(4).Text().Select(int.Parse)
 					from yd in Parse.Char('-')
-					from mouth in Parse.Digit.Repeat(2).Text().Select(int.Parse)
+					from month in Parse.Digit.Repeat(2).Text().Select(int.Parse)
 					from md in Parse.Char('-')
 					from day in Parse.Digit.Repeat(2).Text().Select(int.Parse)
-					select new DateTime(year, mouth, day) as object;
+					select type == typeof(DateTime)
+						? new DateTime(year, month, day) as object
+						: new DateOnly(year, month, day) as object;
 			}
 
 			if (typeof(IEnumerable).IsAssignableFrom(type))
@@ -317,7 +319,7 @@ public abstract record Filter<T> : Filter
 		);
 
 		public static readonly Parser<Filter<T>> Ge = _GetOperationParser(
-			Parse.IgnoreCase("ge").Or(Parse.String(">=")).Token(),
+			Parse.IgnoreCase("ge").Or(Parse.IgnoreCase("gte")).Or(Parse.String(">=")).Token(),
 			(property, value) => new Ge(property, value)
 		);
 
@@ -327,7 +329,7 @@ public abstract record Filter<T> : Filter
 		);
 
 		public static readonly Parser<Filter<T>> Le = _GetOperationParser(
-			Parse.IgnoreCase("le").Or(Parse.String("<=")).Token(),
+			Parse.IgnoreCase("le").Or(Parse.IgnoreCase("lte")).Or(Parse.String("<=")).Token(),
 			(property, value) => new Le(property, value)
 		);
 

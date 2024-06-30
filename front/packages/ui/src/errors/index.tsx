@@ -21,3 +21,4 @@
 export * from "./error";
 export * from "./unauthorized";
 export * from "./connection";
+export * from "./setup";

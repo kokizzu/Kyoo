@@ -20,37 +20,43 @@
 
 import { logout, useAccount, useAccounts, useHasPermission } from "@kyoo/models";
 import {
-	Input,
-	IconButton,
-	Header,
-	Avatar,
 	A,
-	tooltip,
-	ts,
+	Avatar,
+	HR,
+	Header,
+	IconButton,
+	Input,
+	Link,
 	Menu,
 	PressableFeedback,
-	HR,
-	Link,
+	tooltip,
+	ts,
 } from "@kyoo/primitives";
-import { Platform, TextInput, View, ViewProps } from "react-native";
-import { useTranslation } from "react-i18next";
-import { useRouter } from "solito/router";
-import { Stylable, useYoshiki } from "yoshiki/native";
-import Search from "@material-symbols/svg-400/rounded/search-fill.svg";
-import Login from "@material-symbols/svg-400/rounded/login.svg";
-import Register from "@material-symbols/svg-400/rounded/app_registration.svg";
-import Logout from "@material-symbols/svg-400/rounded/logout.svg";
 import Admin from "@material-symbols/svg-400/rounded/admin_panel_settings.svg";
+import Register from "@material-symbols/svg-400/rounded/app_registration.svg";
+import Login from "@material-symbols/svg-400/rounded/login.svg";
+import Logout from "@material-symbols/svg-400/rounded/logout.svg";
+import Search from "@material-symbols/svg-400/rounded/search-fill.svg";
 import Settings from "@material-symbols/svg-400/rounded/settings.svg";
-import { KyooLongLogo } from "./icon";
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { type ReactElement, forwardRef, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Platform, type TextInput, View, type ViewProps } from "react-native";
+import { useRouter } from "solito/router";
+import { type Stylable, percent, useYoshiki } from "yoshiki/native";
 import { AdminPage } from "../admin";
+import { KyooLongLogo } from "./icon";
 
 export const NavbarTitle = (props: Stylable & { onLayout?: ViewProps["onLayout"] }) => {
 	const { t } = useTranslation();
+	const { css } = useYoshiki();
 
 	return (
-		<A href="/" aria-label={t("navbar.home")} {...tooltip(t("navbar.home"))} {...props}>
+		<A
+			href="/"
+			aria-label={t("navbar.home")}
+			{...tooltip(t("navbar.home"))}
+			{...css({ fontSize: 0 }, props)}
+		>
 			<KyooLongLogo />
 		</A>
 	);
@@ -168,7 +174,11 @@ export const NavbarRight = () => {
 	);
 };
 
-export const Navbar = (props: Stylable) => {
+export const Navbar = ({
+	left,
+	right,
+	...props
+}: { left?: ReactElement | null; right?: ReactElement | null } & Stylable) => {
 	const { css } = useYoshiki();
 	const { t } = useTranslation();
 
@@ -195,18 +205,24 @@ export const Navbar = (props: Stylable) => {
 				props,
 			)}
 		>
-			<View {...css({ flexDirection: "row", alignItems: "center" })}>
-				<NavbarTitle {...css({ marginX: ts(2) })} />
-				<A
-					href="/browse"
-					{...css({
-						textTransform: "uppercase",
-						fontWeight: "bold",
-						color: (theme) => theme.contrast,
-					})}
-				>
-					{t("navbar.browse")}
-				</A>
+			<View {...css({ flexDirection: "row", alignItems: "center", height: percent(100) })}>
+				{left !== undefined ? (
+					left
+				) : (
+					<>
+						<NavbarTitle {...css({ marginX: ts(2) })} />
+						<A
+							href="/browse"
+							{...css({
+								textTransform: "uppercase",
+								fontWeight: "bold",
+								color: (theme) => theme.contrast,
+							})}
+						>
+							{t("navbar.browse")}
+						</A>
+					</>
+				)}
 			</View>
 			<View
 				{...css({
@@ -217,7 +233,7 @@ export const Navbar = (props: Stylable) => {
 					marginX: ts(2),
 				})}
 			/>
-			<NavbarRight />
+			{right !== undefined ? right : <NavbarRight />}
 		</Header>
 	);
 };

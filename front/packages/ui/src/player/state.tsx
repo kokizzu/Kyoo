@@ -18,14 +18,22 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Audio, Episode, Subtitle, getLocalSetting, useAccount } from "@kyoo/models";
+import { type Audio, type Episode, type Subtitle, getLocalSetting, useAccount } from "@kyoo/models";
+import { useSnackbar } from "@kyoo/primitives";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useAtomCallback } from "jotai/utils";
-import { ElementRef, memo, useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
-import NativeVideo, { VideoProps } from "./video";
-import { Platform } from "react-native";
-import { useSnackbar } from "@kyoo/primitives";
+import {
+	type ElementRef,
+	memo,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
+import { Platform } from "react-native";
+import NativeVideo, { canPlay, type VideoProps } from "./video";
 
 export const playAtom = atom(true);
 export const loadAtom = atom(false);
@@ -92,17 +100,27 @@ export const Video = memo(function Video({
 	links,
 	subtitles,
 	audios,
+	codec,
 	setError,
 	fonts,
 	startTime: startTimeP,
+	metadata,
 	...props
 }: {
 	links?: Episode["links"];
 	subtitles?: Subtitle[];
 	audios?: Audio[];
+	codec?: string;
 	setError: (error: string | undefined) => void;
 	fonts?: string[];
 	startTime?: number | null;
+	metadata: {
+		title?: string;
+		description?: string;
+		imageUri?: string;
+		previous?: string;
+		next?: string;
+	};
 } & Partial<VideoProps>) {
 	const ref = useRef<ElementRef<typeof NativeVideo> | null>(null);
 	const [isPlaying, setPlay] = useAtom(playAtom);
@@ -124,41 +142,57 @@ export const Video = memo(function Video({
 	}, [publicProgress]);
 
 	const getProgress = useAtomCallback(useCallback((get) => get(progressAtom), []));
-	const oldLinks = useRef<typeof links | null>(null);
-	useLayoutEffect(() => {
+	useEffect(() => {
 		// Reset the state when a new video is loaded.
-		setSource((mode === PlayMode.Direct ? links?.direct : links?.hls) ?? null);
-		setLoad(true);
-		if (oldLinks.current !== links) {
-			setPrivateProgress(startTime.current ?? 0);
-			setPublicProgress(startTime.current ?? 0);
-		} else {
-			// keep current time when changing between direct and hls.
-			startTime.current = getProgress();
+
+		let newMode = getLocalSetting("playmode", "direct") !== "auto" ? PlayMode.Direct : PlayMode.Hls;
+		// Only allow direct play if the device supports it
+		if (newMode === PlayMode.Direct && codec && !canPlay(codec)) {
+			console.log(`Browser can't natively play ${codec}, switching to hls stream.`);
+			newMode = PlayMode.Hls;
 		}
-		oldLinks.current = links;
+		setPlayMode(newMode);
+
+		setSource((newMode === PlayMode.Direct ? links?.direct : links?.hls) ?? null);
+		setLoad(true);
+		setPrivateProgress(startTime.current ?? 0);
+		setPublicProgress(startTime.current ?? 0);
 		setPlay(true);
-	}, [mode, links, setLoad, setPrivateProgress, setPublicProgress, setPlay, getProgress]);
+	}, [links, codec, setLoad, setPrivateProgress, setPublicProgress, setPlay, setPlayMode]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: do not change source when links change, this is done above
+	useEffect(() => {
+		setSource((mode === PlayMode.Direct ? links?.direct : links?.hls) ?? null);
+		// keep current time when changing between direct and hls.
+		startTime.current = getProgress();
+		setPlay(true);
+	}, [mode, getProgress, setPlay]);
 
 	const account = useAccount();
 	const defaultSubLanguage = account?.settings.subtitleLanguage;
 	const setSubtitle = useSetAtom(subtitleAtom);
+
+	// When the video change, try to persist the subtitle language.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Also include the player ref, it can be initalised after the subtitles.
 	useEffect(() => {
 		if (!subtitles) return;
 		setSubtitle((subtitle) => {
-			const subRet = subtitle ? subtitles.find((x) => x.language === subtitle.language) : null;
+			const subRet = subtitle
+				? subtitles.find(
+						(x) => x.language === subtitle.language && x.isForced === subtitle.isForced,
+					)
+				: null;
 			if (subRet) return subRet;
 			if (!defaultSubLanguage) return null;
-			if (defaultSubLanguage == "default") return subtitles.find((x) => x.isDefault) ?? null;
+			if (defaultSubLanguage === "default") return subtitles.find((x) => x.isDefault) ?? null;
 			return subtitles.find((x) => x.language === defaultSubLanguage) ?? null;
 		});
-		// When the video change, try to persist the subtitle language.
-		// Also include the player ref, it can be initalised after the subtitles.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [subtitles, setSubtitle, defaultSubLanguage, ref.current]);
 
 	const defaultAudioLanguage = account?.settings.audioLanguage ?? "default";
 	const setAudio = useSetAtom(audioAtom);
+	// When the video change, try to persist the subtitle language.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Also include the player ref, it can be initalised after the subtitles.
 	useEffect(() => {
 		if (!audios) return;
 		setAudio((audio) => {
@@ -172,9 +206,6 @@ export const Video = memo(function Video({
 			}
 			return audios.find((x) => x.isDefault) ?? audios[0];
 		});
-		// When the video change, try to persist the subtitle language.
-		// Also include the player ref, it can be initalised after the subtitles.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [audios, setAudio, defaultAudioLanguage, ref.current]);
 
 	const volume = useAtomValue(volumeAtom);
@@ -201,8 +232,12 @@ export const Video = memo(function Video({
 			source={{
 				uri: source,
 				startPosition: startTime.current ? startTime.current * 1000 : undefined,
+				metadata: metadata,
 				...links,
 			}}
+			showNotificationControls
+			playInBackground
+			playWhenInactive
 			paused={!isPlaying}
 			muted={isMuted}
 			volume={volume}
@@ -225,7 +260,7 @@ export const Video = memo(function Video({
 					label: t("player.unsupportedError"),
 					duration: 3,
 				});
-				if (mode == PlayMode.Direct) setPlayMode(PlayMode.Hls);
+				if (mode === PlayMode.Direct) setPlayMode(PlayMode.Hls);
 			}}
 		/>
 	);

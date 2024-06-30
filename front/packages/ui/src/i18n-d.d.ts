@@ -19,11 +19,15 @@
  */
 
 import "i18next";
-import en from "../../../translations/en.json";
+import type en from "../../../translations/en.json";
 
 declare module "i18next" {
 	interface CustomTypeOptions {
 		returnNull: false;
-		resources: { translations: typeof en };
+		resources: { translation: typeof en };
+	}
+
+	interface i18n {
+		systemLanguage: string;
 	}
 }

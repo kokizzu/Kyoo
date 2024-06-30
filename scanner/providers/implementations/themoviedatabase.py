@@ -22,6 +22,8 @@ logger = getLogger(__name__)
 
 
 class TheMovieDatabase(Provider):
+	DEFAULT_API_KEY = "c9f328a01011b28f22483717395fc3fa"
+
 	def __init__(
 		self,
 		languages: list[str],
@@ -377,7 +379,7 @@ class TheMovieDatabase(Provider):
 			end_air=None,
 			external_id={
 				self.name: MetadataID(
-					season["id"],
+					show_id,
 					f"https://www.themoviedb.org/tv/{show_id}/season/{season['season_number']}",
 				)
 			},
@@ -533,10 +535,10 @@ class TheMovieDatabase(Provider):
 			(
 				x
 				for x in results
-				if ("name" in x and x["name"] == name)
-				or ("title" in x and x["title"] == name)
+				if ("name" in x and x["name"].casefold() == name.casefold())
+				or ("title" in x and x["title"].casefold() == name.casefold())
 			),
-			key=lambda x: x["popularity"],
+			key=lambda x: (x["vote_count"], x["popularity"]),
 			reverse=True,
 		)
 		if res:
@@ -545,7 +547,7 @@ class TheMovieDatabase(Provider):
 			# Ignore totally unpopular shows or unknown ones.
 			# sorted is stable and False<True so doing this puts baddly rated items at the end of the list.
 			results = sorted(
-				results, key=lambda x: x["vote_count"] < 10 or x["popularity"] < 5
+				results, key=lambda x: x["vote_count"] < 5 or x["popularity"] < 5
 			)
 
 		return results[0]
@@ -559,6 +561,7 @@ class TheMovieDatabase(Provider):
 		absolute-ordered group and return it
 		"""
 
+		show = await self.identify_show(show_id)
 		try:
 			groups = await self.get(f"tv/{show_id}/episode_groups")
 			ep_count = max((x["episode_count"] for x in groups["results"]), default=0)
@@ -577,7 +580,45 @@ class TheMovieDatabase(Provider):
 			if group_id is None:
 				return None
 			group = await self.get(f"tv/episode_group/{group_id}")
-			return [ep for grp in group["groups"] for ep in grp["episodes"]]
+			absgrp = [
+				ep
+				for grp in sorted(group["groups"], key=lambda x: x["order"])
+				# Some shows include specials as the first absolute group (like TenSura)
+				if grp["name"] != "Specials"
+				for ep in sorted(grp["episodes"], key=lambda x: x["order"])
+			]
+			season_starts = [
+				next(
+					(
+						x["episode_number"]
+						for x in absgrp
+						if x["season_number"] == s.season_number
+					),
+					1,
+				)
+				for s in show.seasons
+			]
+			complete_abs = absgrp + [
+				{"season_number": s.season_number, "episode_number": e}
+				for s in show.seasons
+				# ignore specials not specified in the absgrp
+				if s.season_number > 0
+				for e in range(1, s.episodes_count + 1)
+				if not any(
+					x["season_number"] == s.season_number
+					and (
+						x["episode_number"] == e
+						# take into account weird absolute (for example one piece, episodes are not reset to 1 when the season starts)
+						or x["episode_number"] == season_starts[s.season_number - 1] + e
+					)
+					for x in absgrp
+				)
+			]
+			if len(complete_abs) != len(absgrp):
+				logger.warn(
+					f"Incomplete absolute group for show {show_id}. Filling missing values by assuming season/episode order is ascending"
+				)
+			return complete_abs
 		except Exception as e:
 			logger.exception(
 				"Could not retrieve absolute ordering information", exc_info=e
@@ -642,7 +683,7 @@ class TheMovieDatabase(Provider):
 		if absolute is not None:
 			return absolute
 		# assume we use tmdb weird absolute by default (for example, One Piece S21E800, the first
-		# episode of S21 si not reset to 0 but keep increasing so it can be 800
+		# episode of S21 is not reset to 0 but keep increasing so it can be 800
 		start = next(
 			(x["episode_number"] for x in absgrp if x["season_number"] == season), None
 		)

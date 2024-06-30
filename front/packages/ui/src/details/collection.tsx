@@ -19,15 +19,24 @@
  */
 
 import {
-	Collection,
+	type Collection,
 	CollectionP,
-	KyooImage,
-	QueryIdentifier,
+	type KyooImage,
+	type QueryIdentifier,
 	useInfiniteFetch,
 } from "@kyoo/models";
-import { Container, H2, ImageBackground, Link, P, focusReset, ts } from "@kyoo/primitives";
+import {
+	Container,
+	GradientImageBackground,
+	H2,
+	ImageBackground,
+	Link,
+	P,
+	focusReset,
+	ts,
+} from "@kyoo/primitives";
 import { useTranslation } from "react-i18next";
-import { Theme, useYoshiki } from "yoshiki/native";
+import { type Theme, useYoshiki } from "yoshiki/native";
 import { ErrorView } from "../errors";
 
 export const PartOf = ({
@@ -59,11 +68,15 @@ export const PartOf = ({
 				},
 			})}
 		>
-			<ImageBackground
+			<GradientImageBackground
 				src={thumbnail}
 				alt=""
 				quality="medium"
-				gradient={{ colors: [theme.darkOverlay, theme.darkOverlay] }}
+				gradient={{
+					colors: [theme.darkOverlay, "transparent"],
+					start: { x: 0, y: 0 },
+					end: { x: 1, y: 0 },
+				}}
 				{...css({
 					padding: ts(3),
 				})}
@@ -72,7 +85,7 @@ export const PartOf = ({
 					{t("show.partOf")} {name}
 				</H2>
 				<P {...css({ textAlign: "justify" })}>{overview}</P>
-			</ImageBackground>
+			</GradientImageBackground>
 		</Link>
 	);
 };

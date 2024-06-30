@@ -1,18 +1,23 @@
 package src
 
 import (
+	"cmp"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/zoriya/go-mediainfo"
+	"golang.org/x/text/language"
+	"gopkg.in/vansante/go-ffprobe.v2"
 )
 
 type MediaInfo struct {
@@ -22,13 +27,15 @@ type MediaInfo struct {
 	Path string `json:"path"`
 	/// The extension currently used to store this video file
 	Extension string `json:"extension"`
+	/// The whole mimetype (defined as the RFC 6381). ex: `video/mp4; codecs="avc1.640028, mp4a.40.2"`
+	MimeCodec *string `json:"mimeCodec"`
 	/// The file size of the video file.
 	Size uint64 `json:"size"`
 	/// The length of the media in seconds.
 	Duration float32 `json:"duration"`
 	/// The container of the video file of this episode.
 	Container *string `json:"container"`
-	/// The video codec and infromations.
+	/// The video codec and informations.
 	Video *Video `json:"video"`
 	/// The list of videos if there are multiples.
 	Videos []Video `json:"videos"`
@@ -64,7 +71,7 @@ type Audio struct {
 	Index uint32 `json:"index"`
 	/// The title of the stream.
 	Title *string `json:"title"`
-	/// The language of this stream (as a ISO-639-2 language code)
+	/// The language of this stream (as a IETF-BCP-47 language code)
 	Language *string `json:"language"`
 	/// The human readable codec name.
 	Codec string `json:"codec"`
@@ -81,7 +88,7 @@ type Subtitle struct {
 	Index uint32 `json:"index"`
 	/// The title of the stream.
 	Title *string `json:"title"`
-	/// The language of this stream (as a ISO-639-2 language code)
+	/// The language of this stream (as a IETF-BCP-47 language code)
 	Language *string `json:"language"`
 	/// The codec of this stream.
 	Codec string `json:"codec"`
@@ -131,28 +138,6 @@ func ParseUint64(str string) uint64 {
 	return i
 }
 
-func ParseTime(str string) float32 {
-	x := strings.Split(str, ":")
-	hours, minutes, sms := ParseFloat(x[0]), ParseFloat(x[1]), x[2]
-	y := strings.Split(sms, ".")
-	seconds, ms := ParseFloat(y[0]), ParseFloat(y[1])
-
-	return (hours*60.+minutes)*60. + seconds + ms/1000.
-}
-
-// Stolen from the cmp.Or code that is not yet released
-// Or returns the first of its arguments that is not equal to the zero value.
-// If no argument is non-zero, it returns the zero value.
-func Or[T comparable](vals ...T) T {
-	var zero T
-	for _, val := range vals {
-		if val != zero {
-			return val
-		}
-	}
-	return zero
-}
-
 func Map[T, U any](ts []T, f func(T, int) U) []U {
 	us := make([]U, len(ts))
 	for i := range ts {
@@ -161,8 +146,34 @@ func Map[T, U any](ts []T, f func(T, int) U) []U {
 	return us
 }
 
+func MapStream[T any](streams []*ffprobe.Stream, kind ffprobe.StreamType, mapper func(*ffprobe.Stream, uint32) T) []T {
+	count := 0
+	for _, stream := range streams {
+		if stream.CodecType == string(kind) {
+			count++
+		}
+	}
+	ret := make([]T, count)
+
+	i := uint32(0)
+	for _, stream := range streams {
+		if stream.CodecType == string(kind) {
+			ret[i] = mapper(stream, i)
+			i++
+		}
+	}
+	return ret
+}
+
 func OrNull(str string) *string {
 	if str == "" {
+		return nil
+	}
+	return &str
+}
+
+func NullIfUnd(str string) *string {
+	if str == "und" {
 		return nil
 	}
 	return &str
@@ -197,8 +208,10 @@ func GetInfo(path string, sha string) (*MediaInfo, error) {
 
 			var val *MediaInfo
 			val, err = getInfo(path)
-			*mi.info = *val
-			mi.info.Sha = sha
+			if err == nil {
+				*mi.info = *val
+				mi.info.Sha = sha
+			}
 			mi.ready.Done()
 			saveInfo(save_path, mi.info)
 		}()
@@ -235,94 +248,96 @@ func saveInfo[T any](save_path string, mi *T) error {
 func getInfo(path string) (*MediaInfo, error) {
 	defer printExecTime("mediainfo for %s", path)()
 
-	mi, err := mediainfo.Open(path)
+	ctx, cancelFn := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelFn()
+
+	mi, err := ffprobe.ProbeURL(ctx, path)
 	if err != nil {
 		return nil, err
 	}
-	defer mi.Close()
-
-	chapters_begin := ParseUint(mi.Parameter(mediainfo.StreamMenu, 0, "Chapters_Pos_Begin"))
-	chapters_end := ParseUint(mi.Parameter(mediainfo.StreamMenu, 0, "Chapters_Pos_End"))
-
-	attachments := strings.Split(mi.Parameter(mediainfo.StreamGeneral, 0, "Attachments"), " / ")
-	if len(attachments) == 1 && attachments[0] == "" {
-		attachments = make([]string, 0)
-	}
-
-	// fmt.Printf("%s", mi.Option("info_parameters", ""))
 
 	ret := MediaInfo{
 		Path: path,
 		// Remove leading .
 		Extension: filepath.Ext(path)[1:],
-		Size:      ParseUint64(mi.Parameter(mediainfo.StreamGeneral, 0, "FileSize")),
-		// convert ms to seconds
-		Duration:  ParseFloat(mi.Parameter(mediainfo.StreamGeneral, 0, "Duration")) / 1000,
-		Container: OrNull(mi.Parameter(mediainfo.StreamGeneral, 0, "Format")),
-		Videos: Map(make([]Video, ParseUint(mi.Parameter(mediainfo.StreamVideo, 0, "StreamCount"))), func(_ Video, i int) Video {
+		Size:      ParseUint64(mi.Format.Size),
+		Duration:  float32(mi.Format.DurationSeconds),
+		Container: OrNull(mi.Format.FormatName),
+		Videos: MapStream(mi.Streams, ffprobe.StreamVideo, func(stream *ffprobe.Stream, i uint32) Video {
+			lang, _ := language.Parse(stream.Tags.Language)
 			return Video{
-				Codec:     mi.Parameter(mediainfo.StreamVideo, i, "Format"),
-				MimeCodec: GetMimeCodec(mi, mediainfo.StreamVideo, i),
-				Language:  OrNull(mi.Parameter(mediainfo.StreamVideo, i, "Language")),
-				Quality:   QualityFromHeight(ParseUint(mi.Parameter(mediainfo.StreamVideo, i, "Height"))),
-				Width:     ParseUint(mi.Parameter(mediainfo.StreamVideo, i, "Width")),
-				Height:    ParseUint(mi.Parameter(mediainfo.StreamVideo, i, "Height")),
-				Bitrate: ParseUint(
-					Or(
-						mi.Parameter(mediainfo.StreamVideo, i, "BitRate"),
-						mi.Parameter(mediainfo.StreamVideo, i, "OverallBitRate"),
-						mi.Parameter(mediainfo.StreamVideo, i, "BitRate_Nominal"),
-					),
-				),
+				Codec:     stream.CodecName,
+				MimeCodec: GetMimeCodec(stream),
+				Language:  NullIfUnd(lang.String()),
+				Quality:   QualityFromHeight(uint32(stream.Height)),
+				Width:     uint32(stream.Width),
+				Height:    uint32(stream.Height),
+				// ffmpeg does not report bitrate in mkv files, fallback to bitrate of the whole container
+				// (bigger than the result since it contains audio and other videos but better than nothing).
+				Bitrate: ParseUint(cmp.Or(stream.BitRate, mi.Format.BitRate)),
 			}
 		}),
-		Audios: Map(make([]Audio, ParseUint(mi.Parameter(mediainfo.StreamAudio, 0, "StreamCount"))), func(_ Audio, i int) Audio {
+		Audios: MapStream(mi.Streams, ffprobe.StreamAudio, func(stream *ffprobe.Stream, i uint32) Audio {
+			lang, _ := language.Parse(stream.Tags.Language)
 			return Audio{
-				Index:     uint32(i),
-				Title:     OrNull(mi.Parameter(mediainfo.StreamAudio, i, "Title")),
-				Language:  OrNull(mi.Parameter(mediainfo.StreamAudio, i, "Language")),
-				Codec:     mi.Parameter(mediainfo.StreamAudio, i, "Format"),
-				MimeCodec: GetMimeCodec(mi, mediainfo.StreamAudio, i),
-				IsDefault: mi.Parameter(mediainfo.StreamAudio, i, "Default") == "Yes",
-				IsForced:  mi.Parameter(mediainfo.StreamAudio, i, "Forced") == "Yes",
+				Index:     i,
+				Title:     OrNull(stream.Tags.Title),
+				Language:  NullIfUnd(lang.String()),
+				Codec:     stream.CodecName,
+				MimeCodec: GetMimeCodec(stream),
+				IsDefault: stream.Disposition.Default != 0,
+				IsForced:  stream.Disposition.Forced != 0,
 			}
 		}),
-		Subtitles: Map(make([]Subtitle, ParseUint(mi.Parameter(mediainfo.StreamText, 0, "StreamCount"))), func(_ Subtitle, i int) Subtitle {
-			format := strings.ToLower(mi.Parameter(mediainfo.StreamText, i, "Format"))
-			if format == "utf-8" {
-				format = "subrip"
-			}
-			extension := OrNull(SubtitleExtensions[format])
+		Subtitles: MapStream(mi.Streams, ffprobe.StreamSubtitle, func(stream *ffprobe.Stream, i uint32) Subtitle {
+			extension := OrNull(SubtitleExtensions[stream.CodecName])
 			var link *string
 			if extension != nil {
 				x := fmt.Sprintf("%s/%s/subtitle/%d.%s", Settings.RoutePrefix, base64.StdEncoding.EncodeToString([]byte(path)), i, *extension)
 				link = &x
 			}
+			lang, _ := language.Parse(stream.Tags.Language)
 			return Subtitle{
 				Index:     uint32(i),
-				Title:     OrNull(mi.Parameter(mediainfo.StreamText, i, "Title")),
-				Language:  OrNull(mi.Parameter(mediainfo.StreamText, i, "Language")),
-				Codec:     format,
+				Title:     OrNull(stream.Tags.Title),
+				Language:  NullIfUnd(lang.String()),
+				Codec:     stream.CodecName,
 				Extension: extension,
-				IsDefault: mi.Parameter(mediainfo.StreamText, i, "Default") == "Yes",
-				IsForced:  mi.Parameter(mediainfo.StreamText, i, "Forced") == "Yes",
+				IsDefault: stream.Disposition.Default != 0,
+				IsForced:  stream.Disposition.Forced != 0,
 				Link:      link,
 			}
 		}),
-		Chapters: Map(make([]Chapter, max(chapters_end-chapters_begin, 1)-1), func(_ Chapter, i int) Chapter {
+		Chapters: Map(mi.Chapters, func(c *ffprobe.Chapter, _ int) Chapter {
 			return Chapter{
-				StartTime: ParseTime(mi.GetI(mediainfo.StreamMenu, 0, int(chapters_begin)+i, mediainfo.InfoName)),
-				// +1 is safe, the value at chapters_end contains the right duration
-				EndTime: ParseTime(mi.GetI(mediainfo.StreamMenu, 0, int(chapters_begin)+i+1, mediainfo.InfoName)),
-				Name:    mi.GetI(mediainfo.StreamMenu, 0, int(chapters_begin)+i, mediainfo.InfoText),
+				Name:      c.Title(),
+				StartTime: float32(c.StartTimeSeconds),
+				EndTime:   float32(c.EndTimeSeconds),
 			}
 		}),
-		Fonts: Map(
-			attachments,
-			func(font string, _ int) string {
-				return fmt.Sprintf("%s/%s/attachment/%s", Settings.RoutePrefix, base64.StdEncoding.EncodeToString([]byte(path)), font)
-			}),
+		Fonts: MapStream(mi.Streams, ffprobe.StreamAttachment, func(stream *ffprobe.Stream, i uint32) string {
+			font, _ := stream.TagList.GetString("filename")
+			return fmt.Sprintf("%s/%s/attachment/%s", Settings.RoutePrefix, base64.StdEncoding.EncodeToString([]byte(path)), font)
+		}),
 	}
+	var codecs []string
+	if len(ret.Videos) > 0 && ret.Videos[0].MimeCodec != nil {
+		codecs = append(codecs, *ret.Videos[0].MimeCodec)
+	}
+	if len(ret.Audios) > 0 && ret.Audios[0].MimeCodec != nil {
+		codecs = append(codecs, *ret.Audios[0].MimeCodec)
+	}
+	container := mime.TypeByExtension(fmt.Sprintf(".%s", ret.Extension))
+	if container != "" {
+		if len(codecs) > 0 {
+			codecs_str := strings.Join(codecs, ", ")
+			mime := fmt.Sprintf("%s; codecs=\"%s\"", container, codecs_str)
+			ret.MimeCodec = &mime
+		} else {
+			ret.MimeCodec = &container
+		}
+	}
+
 	if len(ret.Videos) > 0 {
 		ret.Video = &ret.Videos[0]
 	}

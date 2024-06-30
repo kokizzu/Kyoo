@@ -18,22 +18,22 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Page, QueryIdentifier, useInfiniteFetch } from "@kyoo/models";
+import { type QueryIdentifier, useInfiniteFetch } from "@kyoo/models";
 import { HR } from "@kyoo/primitives";
+import type { ContentStyle } from "@shopify/flash-list";
 import {
-	ComponentProps,
-	ComponentType,
+	type ComponentProps,
+	type ComponentType,
 	Fragment,
+	type ReactElement,
 	isValidElement,
-	ReactElement,
 	useCallback,
 	useEffect,
 	useRef,
 } from "react";
-import { Stylable, nativeStyleToCss, useYoshiki, ysMap } from "yoshiki";
-import { EmptyView, Layout, WithLoading, addHeader } from "./fetch";
+import { type Stylable, nativeStyleToCss, useYoshiki, ysMap } from "yoshiki";
 import { ErrorView } from "./errors";
-import type { ContentStyle } from "@shopify/flash-list";
+import { EmptyView, type Layout, addHeader } from "./fetch";
 
 const InfiniteScroll = <Props,>({
 	children,
@@ -78,6 +78,7 @@ const InfiniteScroll = <Props,>({
 
 	// Automatically trigger a scroll check on start and after a fetch end in case the user is already
 	// at the bottom of the page or if there is no scroll bar (ultrawide or something like that)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Check for scroll pause after fetch ends
 	useEffect(() => {
 		onScroll();
 	}, [isFetching, onScroll]);
@@ -92,13 +93,13 @@ const InfiniteScroll = <Props,>({
 						// the as any is due to differencies between css types of native and web (already accounted for in yoshiki)
 						gridGap: layout.gap as any,
 					},
-					layout.layout == "vertical" && {
+					layout.layout === "vertical" && {
 						gridTemplateColumns: "1fr",
 						alignItems: "stretch",
 						overflowY: "auto",
 						paddingY: layout.gap as any,
 					},
-					layout.layout == "horizontal" && {
+					layout.layout === "horizontal" && {
 						alignItems: "stretch",
 						overflowX: "auto",
 						overflowY: "hidden",
@@ -144,7 +145,7 @@ export const InfiniteFetchList = <Data, _, HeaderProps, Kind extends number | st
 	query,
 	incremental = false,
 	placeholderCount = 2,
-	children,
+	Render,
 	layout,
 	empty,
 	divider: Divider = false,
@@ -153,21 +154,20 @@ export const InfiniteFetchList = <Data, _, HeaderProps, Kind extends number | st
 	getItemType,
 	getItemSize,
 	nested,
+	Loader,
 	...props
 }: {
 	query: ReturnType<typeof useInfiniteFetch<_, Data>>;
 	incremental?: boolean;
 	placeholderCount?: number;
 	layout: Layout;
-	children: (
-		item: Data extends Page<infer Item> ? WithLoading<Item> : WithLoading<Data>,
-		i: number,
-	) => ReactElement | null;
+	Render: (props: { item: Data; index: number }) => ReactElement | null;
+	Loader: (props: { index: number }) => ReactElement | null;
 	empty?: string | JSX.Element;
 	divider?: boolean | ComponentType;
 	Header?: ComponentType<{ children: JSX.Element } & HeaderProps> | ReactElement;
 	headerProps: HeaderProps;
-	getItemType?: (item: WithLoading<Data>, index: number) => Kind;
+	getItemType?: (item: Data | null, index: number) => Kind;
 	getItemSize?: (kind: Kind) => number;
 	fetchMore?: boolean;
 	contentContainerStyle?: ContentStyle;
@@ -192,7 +192,7 @@ export const InfiniteFetchList = <Data, _, HeaderProps, Kind extends number | st
 			loader={[...Array(placeholderCount)].map((_, i) => (
 				<Fragment key={i.toString()}>
 					{Divider && i !== 0 && (Divider === true ? <HR /> : <Divider />)}
-					{children({ isLoading: true } as any, i)}
+					<Loader index={i} />
 				</Fragment>
 			))}
 			Header={Header}
@@ -202,7 +202,7 @@ export const InfiniteFetchList = <Data, _, HeaderProps, Kind extends number | st
 			{(items ?? oldItems.current)?.map((item, i) => (
 				<Fragment key={(item as any).id}>
 					{Divider && i !== 0 && (Divider === true ? <HR /> : <Divider />)}
-					{children({ ...item, isLoading: false } as any, i)}
+					<Render item={item} index={i} />
 				</Fragment>
 			))}
 		</InfiniteScroll>

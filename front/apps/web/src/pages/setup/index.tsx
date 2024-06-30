@@ -18,12 +18,7 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import "i18next";
-import en from "../../../translations/en.json";
+import { SetupPage } from "@kyoo/ui";
+import { withRoute } from "~/router";
 
-declare module "i18next" {
-	interface CustomTypeOptions {
-		returnNull: false;
-		resources: { translations: typeof en };
-	}
-}
+export default withRoute(SetupPage);

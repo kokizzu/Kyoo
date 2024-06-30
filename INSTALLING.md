@@ -4,9 +4,10 @@
 2. Download the
    [`docker-compose.yml`](https://github.com/zoriya/kyoo/releases/latest/download/docker-compose.yml) and
    [`.env`](https://raw.githubusercontent.com/zoriya/Kyoo/master/.env.example) files
-3. Fill the `.env` file with your configuration options (and an API Key from [themoviedb.org](https://www.themoviedb.org/))
+3. Fill the `.env` file with your configuration options
 4. Look at [Hardware Acceleration section](#Hardware-Acceleration) if you need it
-5. Run `docker compose up -d` and see kyoo at `http://localhost:8901`
+5. Look at [Custom Volumes](#Custom-Volumes) if you need it,
+6. Run `docker compose up -d` and see kyoo at `http://localhost:8901`
 
 # Installing
 
@@ -16,7 +17,7 @@ To install Kyoo, you need docker and docker-compose. Those can be installed from
 or [Windows](https://docs.docker.com/desktop/install/windows-install/). Docker is used to run each services of Kyoo in
 an isolated environment with all the dependencies they need.
 
-Kyoo also needs 2 files to work properly. The first should be downloaded from the latest release artificat, the other needs to be filled in with your configurations.
+Kyoo also needs 2 files to work properly. The first should be downloaded from the latest release artifact, the other needs to be filled in with your configurations.
 Those files can be put in any directory of your choice.
 
 Those files are:
@@ -28,11 +29,8 @@ Those files are:
 > The `docker-compose.yml` file describes the different services of Kyoo, where they should be downloaded and their start order. \
 > The `.env` file contains all the configuration options that the services in `docker-compose.yml` will read.
 
-To retrieve metadata, Kyoo will need to communicate with an external service. For now, that is `the movie database`.
-For this purpose, you will need to get an API Key. For that, go to [themoviedb.org](https://www.themoviedb.org/) and create an account, then
-go [here](https://www.themoviedb.org/settings/api) and copy the `API Key (v3 auth)`, paste it after the `THEMOVIEDB_APIKEY=` on the `.env` file.
-
-If you need hardware acceleration, look at [Hardware Acceleration section](#Hardware-Acceleration) if you need it
+If you need hardware acceleration, look at [Hardware Acceleration section](#Hardware-Acceleration).
+If you need custom volumes (because video directories are on different disks and you can't use raid, because you use network drives or another custom volume type), look at [Custom Volumes](#Custom-Volumes).
 
 The next and last step is actually starting Kyoo. To do that, open a terminal in the same directory as the 3 configurations files
 and run `docker-compose up -d`.
@@ -92,3 +90,32 @@ You can also add `COMPOSE_PROFILES=nvidia` to your `.env` instead of adding the 
 
 Note that most nvidia cards have an artificial limit on the number of encodes. You can confirm your card limit [here](https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new).
 This limit can also be removed by applying an [unofficial patch](https://github.com/keylase/nvidia-patch) to you driver.
+
+# Custom volumes
+
+To customize volumes, you can edit the `docker-compose.yml` manually.
+
+For example, if your library is split into multiples paths you can edit the `volumes` section of **BOTH the transcoder and the scanner** like so:
+
+```patch
+ x-transcoder: &transcoder-base
+   image: ghcr.io/zoriya/kyoo_transcoder:edge
+   networks:
+     default:
+       aliases:
+         - transcoder
+   restart: unless-stopped
+   env_file:
+     - ./.env
+   environment:
+     - GOCODER_PREFIX=/video
+   volumes:
+-    - ${LIBRARY_ROOT}:/video:ro
++    - /my_path/number1:/video/1:ro
++    - /c/Users/Videos/:video/c:ro
+     - ${CACHE_ROOT}:/cache
+     - metadata:/metadata
+```
+You can also edit the volume definition to use advanced volume drivers if you need to access smb or network drives. Mounting a drive into your filesystem and binding it in this volume section is also a valid choice (especially for fuse filesystems like cloud drives for example).
+
+Don't forget to **also edit the scanner's volumes** if you edit the transcoder's volume.

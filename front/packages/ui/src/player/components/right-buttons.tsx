@@ -18,17 +18,18 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Audio, Subtitle } from "@kyoo/models";
-import { IconButton, tooltip, Menu, ts } from "@kyoo/primitives";
-import { useAtom } from "jotai";
-import { Platform, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import type { Audio, Subtitle } from "@kyoo/models";
+import { IconButton, Menu, tooltip, ts } from "@kyoo/primitives";
 import ClosedCaption from "@material-symbols/svg-400/rounded/closed_caption-fill.svg";
 import Fullscreen from "@material-symbols/svg-400/rounded/fullscreen-fill.svg";
 import FullscreenExit from "@material-symbols/svg-400/rounded/fullscreen_exit-fill.svg";
-import SettingsIcon from "@material-symbols/svg-400/rounded/settings-fill.svg";
 import MusicNote from "@material-symbols/svg-400/rounded/music_note-fill.svg";
-import { Stylable, useYoshiki } from "yoshiki/native";
+import SettingsIcon from "@material-symbols/svg-400/rounded/settings-fill.svg";
+import { useAtom } from "jotai";
+import { useTranslation } from "react-i18next";
+import { Platform, View } from "react-native";
+import { type Stylable, useYoshiki } from "yoshiki/native";
+import { useDisplayName } from "../../utils";
 import { fullscreenAtom, subtitleAtom } from "../state";
 import { AudiosMenu, QualitiesMenu } from "../video";
 
@@ -48,6 +49,7 @@ export const RightButtons = ({
 } & Stylable) => {
 	const { css } = useYoshiki();
 	const { t } = useTranslation();
+	const getDisplayName = useDisplayName();
 	const [isFullscreen, setFullscreen] = useAtom(fullscreenAtom);
 	const [selectedSubtitle, setSubtitle] = useAtom(subtitleAtom);
 
@@ -72,7 +74,7 @@ export const RightButtons = ({
 					{subtitles.map((x) => (
 						<Menu.Item
 							key={x.index}
-							label={x.link ? x.displayName : `${x.displayName} (${x.codec})`}
+							label={x.link ? getDisplayName(x) : `${getDisplayName(x)} (${x.codec})`}
 							selected={selectedSubtitle === x}
 							disabled={!x.link}
 							onSelect={() => setSubtitle(x)}

@@ -18,17 +18,25 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { ReactNode, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ServerInfoP, User, UserP } from "./resources";
-import { z } from "zod";
-import { zdate } from "./utils";
-import { removeAccounts, setCookie, updateAccount } from "./account-internal";
-import { useMMKVString } from "react-native-mmkv";
-import { Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { atom, getDefaultStore, useAtomValue, useSetAtom } from "jotai";
+import {
+	type ReactNode,
+	createContext,
+	useContext,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import { Platform } from "react-native";
+import { useMMKVString } from "react-native-mmkv";
+import { z } from "zod";
+import { removeAccounts, setCookie, updateAccount } from "./account-internal";
+import type { KyooErrors } from "./kyoo-errors";
 import { useFetch } from "./query";
-import { KyooErrors } from "./kyoo-errors";
+import { ServerInfoP, type User, UserP } from "./resources";
+import { zdate } from "./utils";
 
 export const TokenP = z.object({
 	token_type: z.literal("Bearer"),
@@ -72,7 +80,6 @@ export const ConnectionErrorContext = createContext<{
 	setError: (error: KyooErrors) => void;
 }>({ error: null, loading: true, setError: () => {} });
 
-/* eslint-disable react-hooks/rules-of-hooks */
 export const AccountProvider = ({
 	children,
 	ssrAccount,
@@ -115,7 +122,7 @@ export const AccountProvider = ({
 			acc?.map((account) => ({
 				...account,
 				select: () => updateAccount(account.id, { ...account, selected: true }),
-				remove: () => removeAccounts((x) => x.id == x.id),
+				remove: () => removeAccounts((x) => x.id === account.id),
 			})) ?? [],
 		[acc],
 	);
@@ -126,29 +133,51 @@ export const AccountProvider = ({
 		setApiUrl(selected?.apiUrl ?? defaultApiUrl);
 	}, [selected, setApiUrl]);
 
-	const user = useFetch({
+	const {
+		isSuccess: userIsSuccess,
+		isError: userIsError,
+		isLoading: userIsLoading,
+		isPlaceholderData: userIsPlaceholder,
+		data: user,
+		error: userError,
+	} = useFetch({
 		path: ["auth", "me"],
 		parser: UserP,
 		placeholderData: selected as User,
 		enabled: !!selected,
 	});
+	// Use a ref here because we don't want the effect to trigger when the selected
+	// value has changed, only when the fetch result changed
+	// If we trigger the effect when the selected value change, we enter an infinite render loop
+	const selectedRef = useRef(selected);
+	selectedRef.current = selected;
 	useEffect(() => {
-		if (!selected || !user.isSuccess || user.isPlaceholderData) return;
+		if (!selectedRef.current || !userIsSuccess || userIsPlaceholder) return;
 		// The id is different when user is stale data, we need to wait for the use effect to invalidate the query.
-		if (user.data.id !== selected.id) return;
-		const nUser = { ...selected, ...user.data };
-		if (!Object.is(selected, nUser)) updateAccount(nUser.id, nUser);
-	}, [selected, user]);
+		if (user.id !== selectedRef.current.id) return;
+		const nUser = { ...selectedRef.current, ...user };
+		updateAccount(nUser.id, nUser);
+	}, [user, userIsSuccess, userIsPlaceholder]);
 
 	const queryClient = useQueryClient();
-	const oldSelectedToken = useRef<string | undefined>(selected?.token.access_token);
+	const oldSelected = useRef<{ id: string; token: string } | null>(
+		selected ? { id: selected.id, token: selected.token.access_token } : null,
+	);
+
+	const [permissionError, setPermissionError] = useState<KyooErrors | null>(null);
+
 	useEffect(() => {
 		// if the user change account (or connect/disconnect), reset query cache.
-		if (selected?.token.access_token !== oldSelectedToken.current) {
+		if (
+			// biome-ignore lint/suspicious/noDoubleEquals: id can be an id, null or undefined
+			selected?.id != oldSelected.current?.id ||
+			(userIsError && selected?.token.access_token !== oldSelected.current?.token)
+		) {
 			initialSsrError.current = undefined;
+			setPermissionError(null);
 			queryClient.resetQueries();
 		}
-		oldSelectedToken.current = selected?.token.access_token;
+		oldSelected.current = selected ? { id: selected.id, token: selected.token.access_token } : null;
 
 		// update cookies for ssr (needs to contains token, theme, language...)
 		if (Platform.OS === "web") {
@@ -156,16 +185,14 @@ export const AccountProvider = ({
 			// cookie used for images and videos since we can't add Authorization headers in img or video tags.
 			setCookie("X-Bearer", selected?.token.access_token);
 		}
-	}, [selected, queryClient]);
-
-	const [permissionError, setPermissionError] = useState<KyooErrors | null>(null);
+	}, [selected, queryClient, userIsError]);
 
 	return (
 		<AccountContext.Provider value={accounts}>
 			<ConnectionErrorContext.Provider
 				value={{
-					error: (selected ? initialSsrError.current ?? user.error : null) ?? permissionError,
-					loading: user.isLoading,
+					error: (selected ? initialSsrError.current ?? userError : null) ?? permissionError,
+					loading: userIsLoading,
 					retry: () => {
 						queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
 					},

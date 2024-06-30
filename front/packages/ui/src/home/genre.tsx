@@ -18,15 +18,21 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Genre, LibraryItem, LibraryItemP, QueryIdentifier, useInfiniteFetch } from "@kyoo/models";
+import {
+	type Genre,
+	type LibraryItem,
+	LibraryItemP,
+	type QueryIdentifier,
+	useInfiniteFetch,
+} from "@kyoo/models";
 import { H3, ts } from "@kyoo/primitives";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useYoshiki } from "yoshiki/native";
+import { itemMap } from "../browse";
 import { ItemGrid } from "../browse/grid";
 import { InfiniteFetchList } from "../fetch-infinite";
-import { useTranslation } from "react-i18next";
-import { itemMap } from "../browse";
 
 export const Header = ({ title }: { title: string }) => {
 	const { css } = useYoshiki();
@@ -63,19 +69,17 @@ export const GenreGrid = ({ genre }: { genre: Genre }) => {
 
 	return (
 		<>
-			{(displayEmpty.current || query.items?.length !== 0) && <Header title={genre} />}
+			{(displayEmpty.current || query.items?.length !== 0) && (
+				<Header title={t(`genres.${genre}`)} />
+			)}
 			<InfiniteFetchList
 				query={query}
 				layout={{ ...ItemGrid.layout, layout: "horizontal" }}
 				placeholderCount={2}
 				empty={displayEmpty.current ? t("home.none") : undefined}
-			>
-				{(x, i) => {
-					// only display empty list if a loading as been displayed (not durring ssr)
-					if (x.isLoading) displayEmpty.current = true;
-					return <ItemGrid key={x.id ?? i} {...itemMap(x)} />;
-				}}
-			</InfiniteFetchList>
+				Render={({ item }) => <ItemGrid {...itemMap(item)} />}
+				Loader={ItemGrid.Loader}
+			/>
 		</>
 	);
 };

@@ -18,7 +18,7 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-const path = require("path");
+const path = require("node:path");
 const CopyPlugin = require("copy-webpack-plugin");
 const DefinePlugin = require("webpack").DefinePlugin;
 
@@ -29,7 +29,8 @@ const suboctopus = path.resolve(path.dirname(require.resolve("jassub")), "../dis
  */
 const nextConfig = {
 	swcMinify: true,
-	reactStrictMode: true,
+	// can't be true since we would run hls cleanup twice and run on race conditions
+	reactStrictMode: false,
 	output: "standalone",
 	webpack: (config) => {
 		config.plugins = [

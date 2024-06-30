@@ -18,22 +18,23 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { LibraryItem, LibraryItemP, QueryIdentifier, QueryPage } from "@kyoo/models";
+import { type LibraryItem, LibraryItemP, type QueryIdentifier, type QueryPage } from "@kyoo/models";
+import { usePageStyle } from "@kyoo/primitives";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { createParam } from "solito";
-import { DefaultLayout } from "../layout";
-import { InfiniteFetch } from "../fetch-infinite";
-import { itemMap } from "../browse";
-import { SearchSort, SortOrd, Layout } from "../browse/types";
-import { BrowseSettings } from "../browse/header";
+import { createFilterString, getMediaTypeFromParam, itemMap } from "../browse";
 import { ItemGrid } from "../browse/grid";
+import { BrowseSettings } from "../browse/header";
 import { ItemList } from "../browse/list";
-import { usePageStyle } from "@kyoo/primitives";
+import { Layout, type MediaType, MediaTypes, SearchSort, SortOrd } from "../browse/types";
+import { InfiniteFetch } from "../fetch-infinite";
+import { DefaultLayout } from "../layout";
 
-const { useParam } = createParam<{ sortBy?: string }>();
+const { useParam } = createParam<{ sortBy?: string; mediaType?: string }>();
 
 const query = (
+	mediaType: MediaType,
 	query?: string,
 	sortKey?: SearchSort,
 	sortOrd?: SortOrd,
@@ -43,8 +44,9 @@ const query = (
 	infinite: true,
 	params: {
 		q: query,
+		filter: createFilterString(mediaType),
 		sortBy:
-			sortKey && sortKey != SearchSort.Relevance ? `${sortKey}:${sortOrd ?? "asc"}` : undefined,
+			sortKey && sortKey !== SearchSort.Relevance ? `${sortKey}:${sortOrd ?? "asc"}` : undefined,
 	},
 });
 
@@ -52,15 +54,17 @@ export const SearchPage: QueryPage<{ q?: string }> = ({ q }) => {
 	const pageStyle = usePageStyle();
 	const { t } = useTranslation();
 	const [sort, setSort] = useParam("sortBy");
+	const [mediaTypeParam, setMediaTypeParam] = useParam("mediaType");
 	const sortKey = (sort?.split(":")[0] as SearchSort) || SearchSort.Relevance;
 	const sortOrd = (sort?.split(":")[1] as SortOrd) || SortOrd.Asc;
 	const [layout, setLayout] = useState(Layout.Grid);
 
+	const mediaType = getMediaTypeFromParam(mediaTypeParam);
 	const LayoutComponent = layout === Layout.Grid ? ItemGrid : ItemList;
 
 	return (
 		<InfiniteFetch
-			query={query(q, sortKey, sortOrd)}
+			query={query(mediaType, q, sortKey, sortOrd)}
 			layout={LayoutComponent.layout}
 			empty={t("search.empty")}
 			incremental
@@ -72,18 +76,26 @@ export const SearchPage: QueryPage<{ q?: string }> = ({ q }) => {
 					setSort={(key, ord) => {
 						setSort(`${key}:${ord}`);
 					}}
+					mediaType={mediaType}
+					availableMediaTypes={MediaTypes}
+					setMediaType={(mediaType) => {
+						setMediaTypeParam(mediaType.key);
+					}}
 					layout={layout}
 					setLayout={setLayout}
 				/>
 			}
 			contentContainerStyle={pageStyle}
-		>
-			{(item) => <LayoutComponent {...itemMap(item)} />}
-		</InfiniteFetch>
+			Render={({ item }) => <LayoutComponent {...itemMap(item)} />}
+			Loader={LayoutComponent.Loader}
+		/>
 	);
 };
 
 SearchPage.getLayout = DefaultLayout;
-SearchPage.getFetchUrls = ({ q, sortBy }) => [
-	query(q, sortBy?.split("-")[0] as SearchSort, sortBy?.split("-")[1] as SortOrd),
-];
+SearchPage.getFetchUrls = ({ q, sortBy, mediaType }) => {
+	const mediaTypeObj = getMediaTypeFromParam(mediaType);
+	return [
+		query(mediaTypeObj, q, sortBy?.split("-")[0] as SearchSort, sortBy?.split("-")[1] as SortOrd),
+	];
+};

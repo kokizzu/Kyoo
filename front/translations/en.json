@@ -39,9 +39,18 @@
 			"droped": "Mark as dropped",
 			"null": "Mark as not seen"
 		},
-		"nextUp": "Next up"
+		"nextUp": "Next up",
+		"season": "Season {{number}}"
 	},
 	"browse": {
+		"mediatypekey": {
+			"all": "All",
+			"movie": "Movies",
+			"show": "Series",
+			"collection": "Collection"
+		},
+		"mediatype-tt": "Media Type",
+		"mediatypelabel": "Media Type",
 		"sortby": "Sort by {{key}}",
 		"sortby-tt": "Sort by",
 		"sortkey": {
@@ -60,6 +69,32 @@
 		"switchToGrid": "Switch to grid view",
 		"switchToList": "Switch to list view"
 	},
+	"genres": {
+		"Action": "Action",
+		"Adventure": "Adventure",
+		"Animation": "Animation",
+		"Comedy": "Comedy",
+		"Crime": "Crime",
+		"Documentary": "Documentary",
+		"Drama": "Drama",
+		"Family": "Family",
+		"Fantasy": "Fantasy",
+		"History": "History",
+		"Horror": "Horror",
+		"Music": "Music",
+		"Mystery": "Mystery",
+		"Romance": "Romance",
+		"ScienceFiction": "Science Fiction",
+		"Thriller": "Thriller",
+		"War": "War",
+		"Western": "Western",
+		"Kids": "Kids",
+		"News": "News",
+		"Reality": "Reality",
+		"Soap": "Soap",
+		"Talk": "Talk",
+		"Politics": "Politics"
+	},
 	"misc": {
 		"settings": "Settings",
 		"prev-page": "Previous page",
@@ -76,6 +111,7 @@
 	"navbar": {
 		"home": "Home",
 		"browse": "Browse",
+		"download": "Download",
 		"search": "Search",
 		"login": "Login",
 		"admin": "Admin panel"
@@ -210,7 +246,11 @@
 		"offline": "You are not connected to internet. Try again later.",
 		"unauthorized": "You are missing the permissions {{permission}} to access this page.",
 		"needVerification": "Your account needs to be verified by your server administrator before you can use it.",
-		"needAccount": "This page can't be accessed in guest mode. You need to create an account or login."
+		"needAccount": "This page can't be accessed in guest mode. You need to create an account or login.",
+		"setup": {
+			"MissingAdminAccount": "No admin account has been created yet. Please register to create one.",
+			"NoVideoFound": "No video was found yet. Add movies or series inside your library's folder for them to show here!"
+		}
 	},
 	"mediainfo": {
 		"file": "File",
@@ -237,6 +277,7 @@
 		},
 		"scanner": {
 			"label": "Scanner",
+			"scan": "Trigger library scan",
 			"empty": "No issue found. All your items are registered."
 		}
 	}

@@ -20,39 +20,32 @@
 
 import "react-native-reanimated";
 
-import { PortalProvider } from "@gorhom/portal";
-import { SnackbarProvider, ThemeSelector } from "@kyoo/primitives";
-import { DownloadProvider } from "@kyoo/ui";
-import { AccountProvider, createQueryClient, storage, useUserTheme } from "@kyoo/models";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
-import i18next from "i18next";
-import { Slot } from "expo-router";
-import { getLocales } from "expo-localization";
-import * as SplashScreen from "expo-splash-screen";
 import {
-	useFonts,
 	Poppins_300Light,
 	Poppins_400Regular,
 	Poppins_900Black,
+	useFonts,
 } from "@expo-google-fonts/poppins";
-import { ReactNode, useEffect, useState } from "react";
-import { useColorScheme } from "react-native";
-import { initReactI18next } from "react-i18next";
+import { PortalProvider } from "@gorhom/portal";
+import { AccountProvider, createQueryClient, storage, useUserTheme } from "@kyoo/models";
+import { SnackbarProvider, ThemeSelector } from "@kyoo/primitives";
+import { DownloadProvider } from "@kyoo/ui";
 import { ThemeProvider as RNThemeProvider } from "@react-navigation/native";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { getLocales } from "expo-localization";
+import { Slot } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import i18next from "i18next";
 import "intl-pluralrules";
-import "@formatjs/intl-locale/polyfill";
-import "@formatjs/intl-displaynames/polyfill";
-import "@formatjs/intl-displaynames/locale-data/en";
-import "@formatjs/intl-displaynames/locale-data/fr";
+import { type ReactNode, useEffect, useState } from "react";
+import { initReactI18next } from "react-i18next";
+import { useColorScheme } from "react-native";
+import resources from "../../../translations";
 
-// TODO: use a backend to load jsons.
-import en from "../../../translations/en.json";
-import fr from "../../../translations/fr.json";
-import zh from "../../../translations/zh.json";
-import { useTheme } from "yoshiki/native";
 import NetInfo from "@react-native-community/netinfo";
 import { onlineManager } from "@tanstack/react-query";
+import { useTheme } from "yoshiki/native";
 
 onlineManager.setEventListener((setOnline) => {
 	return NetInfo.addEventListener((state) => {
@@ -75,18 +68,18 @@ const clientStorage = {
 
 export const clientPersister = createSyncStoragePersister({ storage: clientStorage });
 
+const sysLang = getLocales()[0].languageCode ?? "en";
 i18next.use(initReactI18next).init({
 	interpolation: {
 		escapeValue: false,
 	},
+	returnEmptyString: false,
 	fallbackLng: "en",
-	lng: getLocales()[0].languageCode ?? "en",
-	resources: {
-		en: { translation: en },
-		fr: { translation: fr },
-		zh: { translation: zh },
-	},
+	lng: storage.getString("language") ?? sysLang,
+	resources,
 });
+// @ts-expect-error Manually added value
+i18next.systemLanguage = sysLang;
 
 const NavigationThemeProvider = ({ children }: { children: ReactNode }) => {
 	const theme = useTheme();

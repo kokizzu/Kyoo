@@ -87,6 +87,7 @@ class Matcher:
 
 	async def search_movie(self, title: str, year: Optional[int], path: str):
 		movie = await self._provider.search_movie(title, year)
+		movie.file_title = title
 		movie.path = path
 		logger.debug("Got movie: %s", movie)
 		movie_id = await self._client.post("movies", data=movie.to_kyoo())
@@ -110,13 +111,13 @@ class Matcher:
 		episode = await self._provider.search_episode(
 			title,
 			season=season,
-			episode_nbr=episode_nbr,
+			episode_nbr=episode_nbr if season is not None else None,
 			absolute=episode_nbr if season is None else None,
 			year=year,
 		)
 		episode.path = path
 		logger.debug("Got episode: %s", episode)
-		episode.show_id = await self.create_or_get_show(episode)
+		episode.show_id = await self.create_or_get_show(episode, title)
 
 		if episode.season_number is not None:
 			episode.season_id = await self.register_seasons(
@@ -140,7 +141,7 @@ class Matcher:
 		provider_id = collection.external_id[self._provider.name].data_id
 		return await create_collection(provider_id)
 
-	async def create_or_get_show(self, episode: Episode) -> str:
+	async def create_or_get_show(self, episode: Episode, fallback_name: str) -> str:
 		@cache(ttl=timedelta(days=1), cache=self._show_cache)
 		async def create_show(_: str):
 			# TODO: Check if a show with the same metadata id exists already on kyoo.
@@ -151,6 +152,7 @@ class Matcher:
 				if isinstance(episode.show, PartialShow)
 				else episode.show
 			)
+			show.file_title = fallback_name
 			# TODO: collections
 			logger.debug("Got show: %s", episode)
 			ret = await self._client.post("show", data=show.to_kyoo())
@@ -197,6 +199,11 @@ class Matcher:
 		kind: Literal["collection", "movie", "episode", "show", "season"],
 		kyoo_id: str,
 	):
+		async def id_movie(movie: dict, id: dict):
+			ret = await self._provider.identify_movie(id["dataId"])
+			ret.path = movie["path"]
+			return ret
+
 		async def id_season(season: dict, id: dict):
 			ret = await self._provider.identify_season(
 				id["dataId"], season["seasonNumber"]
@@ -217,7 +224,7 @@ class Matcher:
 			"collection": lambda _, id: self._provider.identify_collection(
 				id["dataId"]
 			),
-			"movie": lambda _, id: self._provider.identify_movie(id["dataId"]),
+			"movie": id_movie,
 			"show": lambda _, id: self._provider.identify_show(id["dataId"]),
 			"season": id_season,
 			"episode": id_episode,

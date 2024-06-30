@@ -18,25 +18,27 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { getToken, Subtitle, Audio } from "@kyoo/models";
+import { type Audio, type Subtitle, getToken } from "@kyoo/models";
+import { Menu, tooltip } from "@kyoo/primitives";
+import Hls, { type Level, type LoadPolicy } from "hls.js";
+import Jassub from "jassub";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
+	type ComponentProps,
+	type RefObject,
 	forwardRef,
-	RefObject,
 	useEffect,
 	useImperativeHandle,
 	useLayoutEffect,
 	useRef,
-	ComponentProps,
 } from "react";
-import { VideoProps } from "react-native-video";
-import { useAtomValue, useSetAtom, useAtom } from "jotai";
-import { useForceRerender, useYoshiki } from "yoshiki";
-import Jassub from "jassub";
-import { audioAtom, playAtom, PlayMode, playModeAtom, progressAtom, subtitleAtom } from "./state";
-import Hls, { Level, LoadPolicy } from "hls.js";
 import { useTranslation } from "react-i18next";
-import { Menu, tooltip } from "@kyoo/primitives";
+import type { VideoProps } from "react-native-video";
 import toVttBlob from "srt-webvtt";
+import { useForceRerender, useYoshiki } from "yoshiki";
+import { useDisplayName } from "../utils";
+import { MediaSessionManager } from "./media-session";
+import { PlayMode, audioAtom, playAtom, playModeAtom, progressAtom, subtitleAtom } from "./state";
 
 let hls: Hls | null = null;
 
@@ -47,13 +49,13 @@ function uuidv4(): string {
 	);
 }
 
-let client_id = typeof window === "undefined" ? "ssr" : uuidv4();
+const client_id = typeof window === "undefined" ? "ssr" : uuidv4();
 
 const initHls = (): Hls => {
-	if (hls !== null) return hls;
+	if (hls) hls.destroy();
 	const loadPolicy: LoadPolicy = {
 		default: {
-			maxTimeToFirstByteMs: Infinity,
+			maxTimeToFirstByteMs: Number.POSITIVE_INFINITY,
 			maxLoadTimeMs: 60_000,
 			timeoutRetry: {
 				maxNumRetry: 2,
@@ -74,14 +76,14 @@ const initHls = (): Hls => {
 			xhr.setRequestHeader("X-CLIENT-ID", client_id);
 		},
 		autoStartLoad: false,
-		startLevel: Infinity,
+		startLevel: Number.POSITIVE_INFINITY,
 		abrEwmaDefaultEstimate: 35_000_000,
 		abrEwmaDefaultEstimateMax: 50_000_000,
 		// debug: true,
 		lowLatencyMode: false,
 		fragLoadPolicy: {
 			default: {
-				maxTimeToFirstByteMs: Infinity,
+				maxTimeToFirstByteMs: Number.POSITIVE_INFINITY,
 				maxLoadTimeMs: 60_000,
 				timeoutRetry: {
 					maxNumRetry: 5,
@@ -124,6 +126,8 @@ const Video = forwardRef<{ seek: (value: number) => void }, VideoProps>(function
 	const ref = useRef<HTMLVideoElement>(null);
 	const oldHls = useRef<string | null>(null);
 	const { css } = useYoshiki();
+	const errorHandler = useRef<typeof onError>(onError);
+	errorHandler.current = onError;
 
 	useImperativeHandle(
 		forwaredRef,
@@ -148,12 +152,11 @@ const Video = forwardRef<{ seek: (value: number) => void }, VideoProps>(function
 	const subtitle = useAtomValue(subtitleAtom);
 	useSubtitle(ref, subtitle, fonts);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: do not restart on startPosition change
 	useLayoutEffect(() => {
 		if (!ref?.current || !source.uri) return;
 		if (!hls || oldHls.current !== source.hls) {
 			// Reinit the hls player when we change track.
-			if (hls) hls.destroy();
-			hls = null;
 			hls = initHls();
 			hls.loadSource(source.hls!);
 			oldHls.current = source.hls;
@@ -167,17 +170,24 @@ const Video = forwardRef<{ seek: (value: number) => void }, VideoProps>(function
 			hls.on(Hls.Events.ERROR, (_, d) => {
 				if (!d.fatal || !hls?.media) return;
 				console.warn("Hls error", d);
-				onError?.call(null, {
+				errorHandler.current?.({
 					error: { errorString: d.reason ?? d.error?.message ?? "Unknown hls error" },
 				});
 			});
 		}
-		// onError changes should not restart the playback.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [source.uri, source.hls]);
+
+	useEffect(() => {
+		return () => {
+			console.log("hls cleanup");
+			if (hls) hls.destroy();
+			hls = null;
+		};
+	}, []);
 
 	const mode = useAtomValue(playModeAtom);
 	const audio = useAtomValue(audioAtom);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: also change when the mode change
 	useEffect(() => {
 		if (!hls) return;
 		const update = () => {
@@ -199,50 +209,63 @@ const Video = forwardRef<{ seek: (value: number) => void }, VideoProps>(function
 	const setProgress = useSetAtom(progressAtom);
 
 	return (
-		<video
-			ref={ref}
-			src={source.uri}
-			muted={muted}
-			autoPlay={!paused}
-			controls={false}
-			playsInline
-			onCanPlay={() => onBuffer?.call(null, { isBuffering: false })}
-			onWaiting={() => onBuffer?.call(null, { isBuffering: true })}
-			onDurationChange={() => {
-				if (!ref.current) return;
-				onLoad?.call(null, { duration: ref.current.duration } as any);
-			}}
-			onTimeUpdate={() => {
-				if (!ref.current) return;
-				onProgress?.call(null, {
-					currentTime: ref.current.currentTime,
-					playableDuration: ref.current.buffered.length
-						? ref.current.buffered.end(ref.current.buffered.length - 1)
-						: 0,
-					seekableDuration: 0,
-				});
-			}}
-			onError={() => {
-				if (ref?.current?.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED)
-					onMediaUnsupported?.call(undefined);
-				else {
-					onError?.call(null, {
-						error: { errorString: ref.current?.error?.message ?? "Unknown error" },
+		<>
+			<MediaSessionManager {...source.metadata} />
+			<video
+				ref={ref}
+				src={source.uri}
+				muted={muted}
+				autoPlay={!paused}
+				controls={false}
+				playsInline
+				onCanPlay={() => onBuffer?.call(null, { isBuffering: false })}
+				onWaiting={() => onBuffer?.call(null, { isBuffering: true })}
+				onDurationChange={() => {
+					if (!ref.current) return;
+					onLoad?.call(null, { duration: ref.current.duration } as any);
+				}}
+				onTimeUpdate={() => {
+					if (!ref.current) return;
+					onProgress?.call(null, {
+						currentTime: ref.current.currentTime,
+						playableDuration: ref.current.buffered.length
+							? ref.current.buffered.end(ref.current.buffered.length - 1)
+							: 0,
+						seekableDuration: 0,
 					});
-				}
-			}}
-			onLoadedMetadata={() => {
-				if (source.startPosition) setProgress(source.startPosition / 1000);
-			}}
-			onPlay={() => onPlaybackStateChanged?.({ isPlaying: true })}
-			onPause={() => onPlaybackStateChanged?.({ isPlaying: false })}
-			onEnded={onEnd}
-			{...css({ width: "100%", height: "100%", objectFit: "contain" })}
-		/>
+				}}
+				onError={() => {
+					if (ref?.current?.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED)
+						onMediaUnsupported?.call(undefined);
+					else {
+						onError?.call(null, {
+							error: { errorString: ref.current?.error?.message ?? "Unknown error" },
+						});
+					}
+				}}
+				onLoadedMetadata={() => {
+					if (source.startPosition) setProgress(source.startPosition / 1000);
+				}}
+				onPlay={() => onPlaybackStateChanged?.({ isPlaying: true })}
+				onPause={() => onPlaybackStateChanged?.({ isPlaying: false })}
+				onEnded={onEnd}
+				{...css({ width: "100%", height: "100%", objectFit: "contain" })}
+			/>
+		</>
 	);
 });
 
 export default Video;
+
+export const canPlay = (codec: string) => {
+	// most chrome based browser (and safari I think) supports matroska but reports they do not.
+	// for those browsers, only check the codecs and not the container.
+	if (navigator.userAgent.search("Firefox") === -1)
+		codec = codec.replace("video/x-matroska", "video/mp4");
+	const videos = document.getElementsByTagName("video");
+	const video = videos.item(0) ?? document.createElement("video");
+	return !!video.canPlayType(codec);
+};
 
 const useSubtitle = (
 	player: RefObject<HTMLVideoElement>,
@@ -251,6 +274,7 @@ const useSubtitle = (
 ) => {
 	const htmlTrack = useRef<HTMLTrackElement | null>();
 	const subOcto = useRef<Jassub | null>();
+	const mode = useAtom(playModeAtom);
 
 	useEffect(() => {
 		if (!player.current) return;
@@ -274,7 +298,7 @@ const useSubtitle = (
 			const addSubtitle = async () => {
 				const track: HTMLTrackElement = htmlTrack.current ?? document.createElement("track");
 				track.kind = "subtitles";
-				track.label = value.displayName;
+				track.label = value.title ?? value.language ?? "Subtitle";
 				if (value.language) track.srclang = value.language;
 				track.src = value.codec === "subrip" ? await toWebVtt(value.link!) : value.link!;
 				track.className = "subtitle_container";
@@ -311,7 +335,9 @@ const useSubtitle = (
 				subOcto.current.setTrackByUrl(value.link);
 			}
 		}
-	}, [player, value, fonts]);
+		// also include mode because srt get's disabled when the mode change (no idea why)
+		mode;
+	}, [player.current, value, fonts, mode]);
 	useEffect(() => {
 		return () => {
 			if (subOcto.current) subOcto.current.destroy();
@@ -342,13 +368,14 @@ export const AudiosMenu = ({
 	const { t } = useTranslation();
 	const rerender = useForceRerender();
 	const [_, setAudio] = useAtom(audioAtom);
+	const getDisplayName = useDisplayName();
 	// force rerender when mode changes
 	useAtomValue(playModeAtom);
 
 	useEffect(() => {
 		if (!hls) return;
 		hls.on(Hls.Events.AUDIO_TRACK_LOADED, rerender);
-		return () => hls!.off(Hls.Events.AUDIO_TRACK_LOADED, rerender);
+		return () => hls?.off(Hls.Events.AUDIO_TRACK_LOADED, rerender);
 	});
 
 	if (!hls) return <Menu {...props} disabled {...tooltip(t("player.notInPristine"))} />;
@@ -359,7 +386,7 @@ export const AudiosMenu = ({
 			{hls.audioTracks.map((x, i) => (
 				<Menu.Item
 					key={i.toString()}
-					label={audios?.[i]?.displayName ?? x.name}
+					label={audios ? getDisplayName(audios[i]) : x.name}
 					selected={hls!.audioTrack === i}
 					onSelect={() => setAudio(audios?.[i] ?? ({ index: i } as any))}
 				/>
@@ -373,11 +400,14 @@ export const QualitiesMenu = (props: ComponentProps<typeof Menu>) => {
 	const [mode, setPlayMode] = useAtom(playModeAtom);
 	const rerender = useForceRerender();
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Inculde hls in dependency array
 	useEffect(() => {
 		if (!hls) return;
+		// Also rerender when hls instance changes
+		rerender();
 		hls.on(Hls.Events.LEVEL_SWITCHED, rerender);
-		return () => hls!.off(Hls.Events.LEVEL_SWITCHED, rerender);
-	});
+		return () => hls?.off(Hls.Events.LEVEL_SWITCHED, rerender);
+	}, [hls]);
 
 	const levelName = (label: Level, auto?: boolean): string => {
 		const height = `${label.height}p`;
@@ -389,12 +419,12 @@ export const QualitiesMenu = (props: ComponentProps<typeof Menu>) => {
 		<Menu {...props}>
 			<Menu.Item
 				label={t("player.direct")}
-				selected={hls === null || mode == PlayMode.Direct}
+				selected={hls === null || mode === PlayMode.Direct}
 				onSelect={() => setPlayMode(PlayMode.Direct)}
 			/>
 			<Menu.Item
 				label={
-					hls != null && hls.autoLevelEnabled && hls.currentLevel >= 0
+					hls?.autoLevelEnabled && hls.currentLevel >= 0
 						? `${t("player.auto")} (${levelName(hls.levels[hls.currentLevel], true)})`
 						: t("player.auto")
 				}

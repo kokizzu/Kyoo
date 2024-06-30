@@ -19,6 +19,7 @@
  */
 
 import "react-native-video";
+import type { ReactVideoSourceProperties } from "react-native-video";
 
 declare module "react-native-video" {
 	interface ReactVideoProps {
@@ -27,29 +28,30 @@ declare module "react-native-video" {
 		onMediaUnsupported?: () => void;
 	}
 	export type VideoProps = Omit<ReactVideoProps, "source"> & {
-		source: { uri: string; hls: string | null; startPosition?: number };
+		source: ReactVideoSourceProperties & { hls: string | null };
 	};
 }
 
 export * from "react-native-video";
 
-import { Audio, Subtitle, getToken, useToken } from "@kyoo/models";
-import { IconButton, Menu } from "@kyoo/primitives";
-import { ComponentProps, forwardRef, useEffect, useRef } from "react";
+import { type Audio, type Subtitle, useToken } from "@kyoo/models";
+import { type IconButton, Menu } from "@kyoo/primitives";
+import "@kyoo/primitives/src/types.d.ts";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
+import { type ComponentProps, forwardRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { View } from "react-native";
+import uuid from "react-native-uuid";
 import NativeVideo, {
-	VideoRef,
-	OnLoadData,
-	VideoProps,
+	type VideoRef,
+	type OnLoadData,
+	type VideoProps,
 	SelectedTrackType,
 	SelectedVideoTrackType,
 } from "react-native-video";
-import { useTranslation } from "react-i18next";
-import { PlayMode, audioAtom, playModeAtom, subtitleAtom } from "./state";
-import uuid from "react-native-uuid";
-import { View } from "react-native";
-import "@kyoo/primitives/src/types.d.ts";
 import { useYoshiki } from "yoshiki/native";
+import { useDisplayName } from "../utils";
+import { PlayMode, audioAtom, playModeAtom, subtitleAtom } from "./state";
 
 const MimeTypes: Map<string, string> = new Map([
 	["subrip", "application/x-subrip"],
@@ -102,7 +104,7 @@ const Video = forwardRef<VideoRef, VideoProps>(function Video(
 				}}
 				selectedVideoTrack={
 					video === -1
-						? { type: SelectedVideoTrackType.AUDO }
+						? { type: SelectedVideoTrackType.AUTO }
 						: { type: SelectedVideoTrackType.RESOLUTION, value: video }
 				}
 				// when video file is invalid, audio is undefined
@@ -119,7 +121,7 @@ const Video = forwardRef<VideoRef, VideoProps>(function Video(
 								type: SelectedTrackType.INDEX,
 								value: subtitles?.indexOf(subtitle),
 							}
-						: { type: SelectedTrackType.DISABLED }
+						: { type: SelectedTrackType.DISABLED, value: "" }
 				}
 				{...props}
 			/>
@@ -129,10 +131,14 @@ const Video = forwardRef<VideoRef, VideoProps>(function Video(
 
 export default Video;
 
+// mobile should be able to play everything
+export const canPlay = (_codec: string) => true;
+
 type CustomMenu = ComponentProps<typeof Menu<ComponentProps<typeof IconButton>>>;
 export const AudiosMenu = ({ audios, ...props }: CustomMenu & { audios?: Audio[] }) => {
 	const info = useAtomValue(infoAtom);
 	const [audio, setAudio] = useAtom(audioAtom);
+	const getDisplayName = useDisplayName();
 
 	if (!info || info.audioTracks.length < 2) return null;
 
@@ -141,7 +147,7 @@ export const AudiosMenu = ({ audios, ...props }: CustomMenu & { audios?: Audio[]
 			{info.audioTracks.map((x) => (
 				<Menu.Item
 					key={x.index}
-					label={audios?.[x.index].displayName ?? x.title ?? x.language ?? "Unknown"}
+					label={audios ? getDisplayName(audios[x.index]) : x.title ?? x.language ?? "Unknown"}
 					selected={audio!.index === x.index}
 					onSelect={() => setAudio(x as any)}
 				/>
@@ -160,20 +166,19 @@ export const QualitiesMenu = (props: CustomMenu) => {
 		<Menu {...props}>
 			<Menu.Item
 				label={t("player.direct")}
-				selected={mode == PlayMode.Direct}
+				selected={mode === PlayMode.Direct}
 				onSelect={() => setPlayMode(PlayMode.Direct)}
 			/>
 			<Menu.Item
 				// TODO: Display the currently selected quality (impossible with rn-video right now)
 				label={t("player.auto")}
-				selected={video === -1 && mode == PlayMode.Hls}
+				selected={video === -1 && mode === PlayMode.Hls}
 				onSelect={() => {
 					setPlayMode(PlayMode.Hls);
 					setVideo(-1);
 				}}
 			/>
 			{/* TODO: Support video tracks when the play mode is not hls. */}
-			{/* @ts-expect-error They forgot to type this. */}
 			{info?.videoTracks
 				.sort((a: any, b: any) => b.height - a.height)
 				.map((x: any, i: number) => (

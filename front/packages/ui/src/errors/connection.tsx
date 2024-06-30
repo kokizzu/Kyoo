@@ -20,13 +20,13 @@
 
 import { ConnectionErrorContext, useAccount } from "@kyoo/models";
 import { Button, H1, Icon, Link, P, ts } from "@kyoo/primitives";
-import { useRouter } from "solito/router";
+import Register from "@material-symbols/svg-400/rounded/app_registration.svg";
 import { useContext } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
+import { useRouter } from "solito/router";
 import { useYoshiki } from "yoshiki/native";
 import { DefaultLayout } from "../layout";
-import Register from "@material-symbols/svg-400/rounded/app_registration.svg";
 
 export const ConnectionError = () => {
 	const { css } = useYoshiki();
@@ -35,7 +35,7 @@ export const ConnectionError = () => {
 	const { error, retry } = useContext(ConnectionErrorContext);
 	const account = useAccount();
 
-	if (error && (error.status === 401 || error.status == 403)) {
+	if (error && (error.status === 401 || error.status === 403)) {
 		if (!account) {
 			return (
 				<View
@@ -64,7 +64,7 @@ export const ConnectionError = () => {
 	return (
 		<View {...css({ padding: ts(2) })}>
 			<H1 {...css({ textAlign: "center" })}>{t("errors.connection")}</H1>
-			<P>{error?.errors[0] ?? t("error.unknown")}</P>
+			<P>{error?.errors[0] ?? t("errors.unknown")}</P>
 			<P>{t("errors.connection-tips")}</P>
 			<Button onPress={retry} text={t("errors.try-again")} {...css({ m: ts(1) })} />
 			<Button

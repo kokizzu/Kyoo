@@ -19,13 +19,20 @@
  */
 
 import { LinearGradient as LG } from "expo-linear-gradient";
-import { AnimatePresence, motify, MotiView } from "moti";
-import { useState } from "react";
-import { Platform, View, ViewProps } from "react-native";
-import { px, rem, useYoshiki, percent, em } from "yoshiki/native";
-import { hiddenIfNoJs } from "./utils/nojs";
+import { memo, useEffect } from "react";
+import { Platform, StyleSheet, View, type ViewProps } from "react-native";
+import Animated, {
+	SharedValue,
+	useAnimatedStyle,
+	useDerivedValue,
+	useSharedValue,
+	withDelay,
+	withRepeat,
+	withTiming,
+} from "react-native-reanimated";
+import { em, percent, px, rem, useYoshiki } from "yoshiki/native";
 
-const LinearGradient = motify(LG)();
+const LinearGradient = Animated.createAnimatedComponent(LG);
 
 export const SkeletonCss = () => (
 	<style jsx global>{`
@@ -56,8 +63,19 @@ export const Skeleton = ({
 	variant?: "text" | "header" | "round" | "custom" | "fill" | "filltext";
 }) => {
 	const { css, theme } = useYoshiki();
-	const [width, setWidth] = useState<number | undefined>(undefined);
-	const perc = (v: number) => (v / 100) * width!;
+	const width = useSharedValue(-900);
+	const mult = useSharedValue(-1);
+	const animated = useAnimatedStyle(() => ({
+		transform: [
+			{
+				translateX: width.value * mult.value,
+			},
+		],
+	}));
+
+	useEffect(() => {
+		mult.value = withRepeat(withDelay(800, withTiming(1, { duration: 800 })), 0);
+	});
 
 	if (forcedShow === undefined && children && children !== true) return <>{children}</>;
 
@@ -99,71 +117,46 @@ export const Skeleton = ({
 				props,
 			)}
 		>
-			<AnimatePresence>
-				{children}
-				{(forcedShow || !children || children === true) &&
-					[...Array(lines)].map((_, i) => (
-						<MotiView
-							key={`skeleton_${i}`}
-							// No clue why it is a number on mobile and a string on web but /shrug
-							animate={{ opacity: Platform.OS === "web" ? ("1" as any) : 1 }}
-							exit={{ opacity: 0 }}
-							transition={{ type: "timing" }}
-							onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-							{...css(
-								[
-									{
-										bg: (theme) => theme.overlay0,
-									},
-									lines === 1 && {
-										position: "absolute",
-										top: 0,
-										bottom: 0,
-										left: 0,
-										right: 0,
-									},
-									lines !== 1 && {
-										width: i === lines - 1 ? percent(40) : percent(100),
-										height: rem(1.2),
-										marginBottom: rem(0.5),
-										overflow: "hidden",
-										borderRadius: px(6),
-									},
-								],
-								hiddenIfNoJs,
-							)}
-						>
-							<LinearGradient
-								start={{ x: 0, y: 0.5 }}
-								end={{ x: 1, y: 0.5 }}
-								colors={["transparent", theme.overlay1, "transparent"]}
-								transition={{
-									loop: true,
-									repeatReverse: false,
-								}}
-								animate={{
-									translateX: width
-										? [perc(-100), { value: perc(100), type: "timing", duration: 800, delay: 800 }]
-										: undefined,
-								}}
-								{...css([
-									{
-										position: "absolute",
-										top: 0,
-										bottom: 0,
-										left: 0,
-										right: 0,
-									},
-									Platform.OS === "web" && {
-										// @ts-ignore Web only properties
-										animation: "skeleton 1.6s linear 0.5s infinite",
-										transform: "translateX(-100%)",
-									},
-								])}
-							/>
-						</MotiView>
-					))}
-			</AnimatePresence>
+			{(forcedShow || !children || children === true) &&
+				[...Array(lines)].map((_, i) => (
+					<View
+						key={`skeleton_${i}`}
+						onLayout={(e) => {
+							width.value = e.nativeEvent.layout.width;
+						}}
+						{...css([
+							{
+								bg: (theme) => theme.overlay0,
+							},
+							lines === 1 && {
+								position: "absolute",
+								top: 0,
+								bottom: 0,
+								left: 0,
+								right: 0,
+							},
+							lines !== 1 && {
+								width: i === lines - 1 ? percent(40) : percent(100),
+								height: rem(1.2),
+								marginBottom: rem(0.5),
+								overflow: "hidden",
+								borderRadius: px(6),
+							},
+						])}
+					>
+						<LinearGradient
+							start={{ x: 0, y: 0.5 }}
+							end={{ x: 1, y: 0.5 }}
+							colors={["transparent", theme.overlay1, "transparent"]}
+							style={[
+								StyleSheet.absoluteFillObject,
+								{ transform: [{ translateX: -width.value }] },
+								animated,
+							]}
+						/>
+					</View>
+				))}
+			{children}
 		</View>
 	);
 };

@@ -1,11 +1,10 @@
 import asyncio
 from typing import Union, Literal
 from msgspec import Struct, json
-import os
 from logging import getLogger
-from aio_pika import connect_robust
 from aio_pika.abc import AbstractIncomingMessage
 
+from providers.rabbit_base import RabbitBase
 from matcher.matcher import Matcher
 
 logger = getLogger(__name__)
@@ -31,40 +30,26 @@ class Refresh(Message):
 decoder = json.Decoder(Union[Scan, Delete, Refresh])
 
 
-class Subscriber:
-	QUEUE = "scanner"
-
-	async def __aenter__(self):
-		self._con = await connect_robust(
-			host=os.environ.get("RABBITMQ_HOST", "rabbitmq"),
-			port=int(os.environ.get("RABBITMQ_PORT", "5672")),
-			login=os.environ.get("RABBITMQ_DEFAULT_USER", "guest"),
-			password=os.environ.get("RABBITMQ_DEFAULT_PASS", "guest"),
-		)
-		self._channel = await self._con.channel()
-		self._queue = await self._channel.declare_queue(self.QUEUE)
-		return self
-
-	async def __aexit__(self, exc_type, exc_value, exc_tb):
-		await self._con.close()
-
-	async def listen(self, scanner: Matcher):
+class Subscriber(RabbitBase):
+	async def listen(self, matcher: Matcher):
 		async def on_message(message: AbstractIncomingMessage):
 			try:
 				msg = decoder.decode(message.body)
 				ack = False
 				match msg:
 					case Scan(path):
-						ack = await scanner.identify(path)
+						ack = await matcher.identify(path)
 					case Delete(path):
-						ack = await scanner.delete(path)
+						ack = await matcher.delete(path)
 					case Refresh(kind, id):
-						ack = await scanner.refresh(kind, id)
+						ack = await matcher.refresh(kind, id)
 					case _:
 						logger.error(f"Invalid action: {msg.action}")
 				if ack:
+					logger.info("finished processing %s", msg)
 					await message.ack()
 				else:
+					logger.warn("failed to process %s", msg)
 					await message.reject()
 			except Exception as e:
 				logger.exception("Unhandled error", exc_info=e)

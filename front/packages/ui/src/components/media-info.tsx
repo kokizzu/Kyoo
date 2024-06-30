@@ -18,41 +18,51 @@
  * along with Kyoo. If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { Audio, QueryIdentifier, Subtitle, WatchInfo, WatchInfoP } from "@kyoo/models";
+import {
+	type Audio,
+	type QueryIdentifier,
+	type Subtitle,
+	type WatchInfo,
+	WatchInfoP,
+} from "@kyoo/models";
 import { Button, HR, P, Popup, Skeleton } from "@kyoo/primitives";
-import { Fetch } from "../fetch";
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useYoshiki } from "yoshiki/native";
-import { Fragment } from "react";
+import { Fetch } from "../fetch";
+import { useDisplayName } from "../utils";
 
 const MediaInfoTable = ({
 	mediaInfo: { path, video, container, audios, subtitles, duration, size },
 }: {
 	mediaInfo: Partial<WatchInfo>;
 }) => {
+	const getDisplayName = useDisplayName();
 	const { t } = useTranslation();
 	const { css } = useYoshiki();
+
 	const formatBitrate = (b: number) => `${(b / 1000000).toFixed(2)} Mbps`;
-	const formatTrackTable = (trackTable: (Audio | Subtitle)[], s: string) => {
-		if (trackTable.length == 0) {
+	const formatTrackTable = (trackTable: (Audio | Subtitle)[], type: "subtitles" | "audio") => {
+		if (trackTable.length === 0) {
 			return undefined;
 		}
-		const singleTrack = trackTable.length == 1;
+		const singleTrack = trackTable.length === 1;
 		return trackTable.reduce(
-			(collected, audioTrack, index) => ({
-				...collected,
+			(collected, audioTrack, index) => {
 				// If there is only one track, we do not need to show an index
-				[singleTrack ? t(s) : `${t(s)} ${index + 1}`]: [
-					audioTrack.displayName,
-					// Only show it if there is more than one track
-					audioTrack.isDefault && !singleTrack ? t("mediainfo.default") : undefined,
-					audioTrack.isForced ? t("mediainfo.forced") : undefined,
-					audioTrack.codec,
-				]
-					.filter((x) => x !== undefined)
-					.join(" - "),
-			}),
+				collected[singleTrack ? t(`mediainfo.${type}`) : `${t(`mediainfo.${type}`)} ${index + 1}`] =
+					[
+						getDisplayName(audioTrack),
+						// Only show it if there is more than one track
+						audioTrack.isDefault && !singleTrack ? t("mediainfo.default") : undefined,
+						audioTrack.isForced ? t("mediainfo.forced") : undefined,
+						audioTrack.codec,
+					]
+						.filter((x) => x !== undefined)
+						.join(" - ");
+				return collected;
+			},
 			{} as Record<string, string | undefined>,
 		);
 	};
@@ -75,10 +85,10 @@ const MediaInfoTable = ({
 			},
 			audios === undefined
 				? { [t("mediainfo.audio")]: undefined }
-				: formatTrackTable(audios, "mediainfo.audio"),
+				: formatTrackTable(audios, "audio"),
 			subtitles === undefined
 				? { [t("mediainfo.subtitles")]: undefined }
-				: formatTrackTable(subtitles, "mediainfo.subtitles"),
+				: formatTrackTable(subtitles, "subtitles"),
 		] as const
 	).filter((x) => x !== undefined) as Record<string, string | undefined>[];
 	return (
@@ -94,7 +104,7 @@ const MediaInfoTable = ({
 								<Skeleton>{value ? <P>{value}</P> : undefined}</Skeleton>
 							</View>
 						</View>
-						{index == l.length - 1 && <HR />}
+						{index === l.length - 1 && <HR />}
 					</Fragment>
 				)),
 			)}
