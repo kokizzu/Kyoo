@@ -28,7 +28,7 @@ export const Input = ({
 				ref={ref}
 				textAlignVertical="center"
 				className={cn(
-					"h-6 flex-1 font-sans text-base text-slate-600 outline-0 dark:text-slate-400",
+					"min-h-6 flex-1 font-sans text-base text-slate-600 outline-0 dark:text-slate-400",
 					className,
 				)}
 				{...props}

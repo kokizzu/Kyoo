@@ -22,7 +22,10 @@ export const RegisterPage = () => {
 
 	const router = useRouter();
 	const { t } = useTranslation();
-	const { data: info } = useFetch(OidcLogin.query(apiUrl));
+	const { data: info } = useFetch({
+		...OidcLogin.query(apiUrl),
+		options: { returnError: true },
+	});
 
 	if (Platform.OS !== "web" && !apiUrl) return <ServerUrlPage />;
 	if (info?.allowRegister === false) {
