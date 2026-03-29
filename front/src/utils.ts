@@ -1,5 +1,9 @@
 import { type ClassValue, clsx } from "clsx";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+	useGlobalSearchParams,
+	useLocalSearchParams,
+	useRouter,
+} from "expo-router";
 import { useCallback, useReducer } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -18,9 +22,10 @@ export function getServerData(key: string): any {
 
 export const useQueryState = <S>(key: string, initial: S) => {
 	const params = useLocalSearchParams();
+	const global = useGlobalSearchParams();
 	const router = useRouter();
 
-	const state = (params[key] as S) ?? initial;
+	const state = (params[key] as S) ?? (global[key] as S) ?? initial;
 	const update = useCallback(
 		(val: S | ((old: S) => S)) => {
 			router.setParams({ [key]: val } as any);

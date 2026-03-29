@@ -7,7 +7,13 @@ import Person from "@material-symbols/svg-400/rounded/person-fill.svg";
 import Search from "@material-symbols/svg-400/rounded/search-fill.svg";
 import Settings from "@material-symbols/svg-400/rounded/settings.svg";
 import { useIsFocused } from "@react-navigation/native";
-import { useNavigation, usePathname, useRouter } from "expo-router";
+import {
+	useGlobalSearchParams,
+	useLocalSearchParams,
+	useNavigation,
+	usePathname,
+	useRouter,
+} from "expo-router";
 import KyooLongLogo from "public/icon-long.svg";
 import {
 	type ComponentProps,
@@ -45,7 +51,7 @@ import {
 } from "~/primitives";
 import { useAccount, useAccounts } from "~/providers/account-context";
 import { logout } from "~/ui/login/logic";
-import { cn } from "~/utils";
+import { cn, useQueryState } from "~/utils";
 
 export const NavbarLeft = () => {
 	const { t } = useTranslation();
@@ -91,48 +97,46 @@ export const NavbarTitle = ({
 };
 
 export const NavbarRight = () => {
-	const { t } = useTranslation();
-	const isAdmin = false; //useHasPermission(AdminPage.requiredPermissions);
+	const router = useRouter();
+	const path = usePathname();
+	const [q, setQuery] = useQueryState<string | undefined>("q", undefined);
 
 	return (
 		<View className="shrink flex-row items-center">
-			<SearchBar />
-			{isAdmin && (
-				<IconButton
-					icon={Admin}
-					as={Link}
-					href={"/admin"}
-					iconClassName="fill-slate-200 dark:fill-slate-200"
-					{...tooltip(t("navbar.admin"))}
-				/>
-			)}
+			<SearchBar
+				key={path}
+				query={path === "/browse" ? q : undefined}
+				onChange={(query) => {
+					if (path === "/browse") setQuery(query);
+				}}
+				onSubmit={(query) => {
+					if (query && path !== "/browse") {
+						router.push(`/browse?q=${query}`);
+					}
+				}}
+				onClear={() => {
+					if (path === "/browse") setQuery(undefined);
+				}}
+			/>
 			<NavbarProfile />
 		</View>
 	);
 };
 
-const SearchBar = () => {
+const SearchBar = ({
+	query,
+	onChange,
+	onSubmit,
+	onClear,
+}: {
+	query: string | undefined;
+	onChange: (query: string) => void;
+	onSubmit?: (query: string | undefined) => void;
+	onClear?: () => void;
+}) => {
 	const { t } = useTranslation();
-	const [expanded, setExpanded] = useState(false);
+	const [expanded, setExpanded] = useState(!!query);
 	const inputRef = useRef<TextInput>(null);
-
-	const router = useRouter();
-	const [query, setQuery] = useState("");
-
-	const path = usePathname();
-	const shouldExpand = useRef(false);
-	useEffect(() => {
-		if (path === "/browse" && shouldExpand.current) {
-			shouldExpand.current = false;
-			// Small delay to allow animation to start before focusing
-			setTimeout(() => {
-				setExpanded(true);
-				inputRef.current?.focus();
-			}, 300);
-		} else if (path === "/") {
-			inputRef.current?.blur();
-		}
-	}, [path]);
 
 	return (
 		<Animated.View
@@ -151,14 +155,11 @@ const SearchBar = () => {
 			<TextInput
 				ref={inputRef}
 				value={query}
-				onChangeText={(q) => {
-					setQuery(q);
-					router.setParams({ q });
-				}}
-				onFocus={() => router.push(query ? `/browse?q=${query}` : "/browse")}
+				onChangeText={(q) => onChange(q)}
+				onSubmitEditing={(e) => onSubmit?.(e.nativeEvent.text)}
+				onFocus={() => setExpanded(true)}
 				onBlur={() => {
-					if (query !== "") return;
-					setExpanded(false);
+					if (!query) setExpanded(false);
 				}}
 				placeholder={t("navbar.search")}
 				textAlignVertical="center"
@@ -179,10 +180,8 @@ const SearchBar = () => {
 					if (expanded) {
 						inputRef.current?.blur();
 						setExpanded(false);
-						setQuery("");
-						router.setParams({ q: undefined });
+						onClear?.();
 					} else {
-						shouldExpand.current = true;
 						setExpanded(true);
 						// Small delay to allow animation to start before focusing
 						setTimeout(() => inputRef.current?.focus(), 100);
