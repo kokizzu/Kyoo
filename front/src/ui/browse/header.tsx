@@ -99,20 +99,24 @@ export const BrowseSettings = ({
 
 	return (
 		<View className="mx-8 my-2 flex-row items-center justify-between">
-			<Menu
-				Trigger={MediaTypeTrigger}
-				mediaType={mediaType as keyof typeof MediaTypeIcons}
-			>
-				{Object.keys(MediaTypeIcons).map((x) => (
-					<Menu.Item
-						key={x}
-						label={t(`browse.mediatypekey.${x as keyof typeof MediaTypeIcons}`)}
-						selected={mediaType === x}
-						icon={MediaTypeIcons[x as keyof typeof MediaTypeIcons]}
-						onSelect={() => setMediaType(x)}
-					/>
-				))}
-			</Menu>
+			<View className="flex-row">
+				<Menu
+					Trigger={MediaTypeTrigger}
+					mediaType={mediaType as keyof typeof MediaTypeIcons}
+				>
+					{Object.keys(MediaTypeIcons).map((x) => (
+						<Menu.Item
+							key={x}
+							label={t(
+								`browse.mediatypekey.${x as keyof typeof MediaTypeIcons}`,
+							)}
+							selected={mediaType === x}
+							icon={MediaTypeIcons[x as keyof typeof MediaTypeIcons]}
+							onSelect={() => setMediaType(x)}
+						/>
+					))}
+				</Menu>
+			</View>
 			<View className="flex-row">
 				<Menu Trigger={SortTrigger} sortBy={sortBy}>
 					{availableSorts.map((x) => (
