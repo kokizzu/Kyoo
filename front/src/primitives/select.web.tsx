@@ -7,7 +7,7 @@ import { Platform, View } from "react-native";
 import { cn } from "~/utils";
 import { Icon } from "./icons";
 import { PressableFeedback } from "./links";
-import { InternalTriger } from "./menu.web";
+import { InternalTrigger } from "./menu.web";
 import { P } from "./text";
 
 export const Select = ({
@@ -26,7 +26,7 @@ export const Select = ({
 	return (
 		<RSelect.Root value={value} onValueChange={onValueChange}>
 			<RSelect.Trigger aria-label={label} asChild>
-				<InternalTriger
+				<InternalTrigger
 					Component={Platform.OS === "web" ? "div" : PressableFeedback}
 					className={cn(
 						"group flex-row items-center justify-center overflow-hidden rounded-4xl",
@@ -44,7 +44,7 @@ export const Select = ({
 							/>
 						</RSelect.Icon>
 					</View>
-				</InternalTriger>
+				</InternalTrigger>
 			</RSelect.Trigger>
 			<RSelect.Portal>
 				<RSelect.Content
@@ -86,7 +86,7 @@ const Item = forwardRef<HTMLDivElement, { label: string; value: string }>(
 			>
 				<RSelect.ItemText className={cn()}>{label}</RSelect.ItemText>
 				<RSelect.ItemIndicator asChild>
-					<InternalTriger
+					<InternalTrigger
 						Component={Icon}
 						icon={Check}
 						className={cn(

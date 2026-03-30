@@ -106,7 +106,6 @@ export const AddVideoFooter = ({
 					icon={LibraryAdd}
 					text={t("videos-map.add")}
 					className="m-6 mt-10"
-					onPress={props.onPress ?? (props as any).onClick}
 					{...props}
 				/>
 			)}

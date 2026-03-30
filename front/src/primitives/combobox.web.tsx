@@ -10,7 +10,7 @@ import { cn } from "~/utils";
 import type { ComboBoxProps } from "./combobox";
 import { Icon } from "./icons";
 import { PressableFeedback } from "./links";
-import { InternalTriger } from "./menu.web";
+import { InternalTrigger } from "./menu.web";
 import { Skeleton } from "./skeleton";
 import { P } from "./text";
 
@@ -59,9 +59,9 @@ export const ComboBox = <Data,>({
 		>
 			<Popover.Trigger aria-label={label} asChild>
 				{Trigger ? (
-					<InternalTriger Component={Trigger} />
+					<InternalTrigger Component={Trigger} />
 				) : (
-					<InternalTriger
+					<InternalTrigger
 						Component={Platform.OS === "web" ? "div" : PressableFeedback}
 						className={cn(
 							"group flex-row items-center justify-center overflow-hidden rounded-4xl",
@@ -83,7 +83,7 @@ export const ComboBox = <Data,>({
 								className="group-focus-within:fill-slate-200 group-hover:fill-slate-200"
 							/>
 						</View>
-					</InternalTriger>
+					</InternalTrigger>
 				)}
 			</Popover.Trigger>
 			<Popover.Portal>

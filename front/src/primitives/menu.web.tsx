@@ -13,7 +13,7 @@ import { Icon } from "./icons";
 import { useLinkTo } from "./links";
 import { P } from "./text";
 
-export const InternalTriger = forwardRef<unknown, any>(function _Triger(
+export const InternalTrigger = forwardRef<unknown, any>(function _Triger(
 	{ Component, ComponentProps, ...props },
 	ref,
 ) {
@@ -23,6 +23,7 @@ export const InternalTriger = forwardRef<unknown, any>(function _Triger(
 			{...ComponentProps}
 			{...props}
 			onClickCapture={props.onPointerDown}
+			onPress={props.onPress ?? props.onClick}
 		/>
 	);
 });
@@ -54,12 +55,12 @@ const Menu = <AsProps extends { onPress: PressableProps["onPress"] }>({
 			}}
 		>
 			<DropdownMenu.Trigger asChild>
-				<InternalTriger Component={Trigger} {...props} />
+				<InternalTrigger Component={Trigger} {...props} />
 			</DropdownMenu.Trigger>
 			<DropdownMenu.Portal>
 				<DropdownMenu.Content
 					onFocusOutside={(e) => e.stopImmediatePropagation()}
-					className="z-10 min-w-2xs overflow-hidden rounded bg-popover shadow-xl"
+					className="z-10 min-w-2xs overflow-y-auto rounded bg-popover shadow-xl"
 					style={{
 						maxHeight:
 							"calc(var(--radix-dropdown-menu-content-available-height) * 0.8)",
@@ -81,6 +82,7 @@ const MenuItem = forwardRef<
 		left?: ReactElement;
 		disabled?: boolean;
 		selected?: boolean;
+		closeOnSelect?: boolean;
 		className?: string;
 	} & (
 		| { onSelect: () => void; href?: undefined }
@@ -95,6 +97,7 @@ const MenuItem = forwardRef<
 		onSelect,
 		href,
 		disabled,
+		closeOnSelect = true,
 		className,
 		...props
 	},
@@ -117,7 +120,8 @@ const MenuItem = forwardRef<
 		<DropdownMenu.Item
 			ref={ref}
 			{...linkProps}
-			onSelect={() => {
+			onSelect={(e) => {
+				if (!closeOnSelect) e.preventDefault();
 				onSelect?.();
 				onPress?.(undefined!);
 			}}

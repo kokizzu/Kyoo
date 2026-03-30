@@ -107,12 +107,14 @@ const MenuItem = ({
 	href,
 	icon,
 	disabled,
+	closeOnSelect = true,
 	...props
 }: {
 	label: string;
 	selected?: boolean;
 	left?: ReactElement;
 	disabled?: boolean;
+	closeOnSelect?: boolean;
 	icon?: ComponentType<SvgProps>;
 } & (
 	| { onSelect: () => void; href?: undefined }
@@ -131,7 +133,7 @@ const MenuItem = ({
 	return (
 		<PressableFeedback
 			onPress={() => {
-				setOpen?.call(null, false);
+				if (closeOnSelect) setOpen?.call(null, false);
 				onSelect?.call(null);
 				if (href) router.push(href);
 			}}
