@@ -1,11 +1,14 @@
 import MenuIcon from "@material-symbols/svg-400/rounded/menu-fill.svg";
+import MoreVert from "@material-symbols/svg-400/rounded/more_vert.svg";
 import { useRouter } from "expo-router";
-import type { ComponentProps } from "react";
+import { type ComponentProps, useContext } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import z from "zod";
 import { EntryLine, entryDisplayNumber } from "~/components/entries";
+import { watchListIcon } from "~/components/items/watchlist-info";
 import { Entry, Season } from "~/models";
+import { Paged } from "~/models/utils/page";
 import {
 	Container,
 	H2,
@@ -16,7 +19,15 @@ import {
 	Skeleton,
 	tooltip,
 } from "~/primitives";
-import { type QueryIdentifier, useInfiniteFetch } from "~/query";
+import { AccountContext, useAccount } from "~/providers/account-context";
+import {
+	keyToUrl,
+	type QueryIdentifier,
+	queryFn,
+	toQueryKey,
+	useInfiniteFetch,
+	useMutation,
+} from "~/query";
 import { InfiniteFetch } from "~/query/fetch-infinite";
 import { EmptyView } from "~/ui/empty-view";
 import { cn } from "~/utils";
@@ -37,6 +48,24 @@ export const SeasonHeader = ({
 }) => {
 	const { t } = useTranslation();
 	const router = useRouter();
+	const account = useAccount();
+	const { apiUrl, authToken } = useContext(AccountContext);
+
+	const markAsSeen = useMutation({
+		method: "POST",
+		path: ["api", "profiles", "me", "history"],
+		compute: (entries: string[]) => ({
+			body: entries.map((entry) => ({
+				percent: 100,
+				entry,
+				videoId: null,
+				time: 0,
+				playedDate: null,
+				external: true,
+			})),
+		}),
+		invalidate: ["api", "series", serieSlug, "entries"],
+	});
 
 	return (
 		<View
@@ -50,6 +79,39 @@ export const SeasonHeader = ({
 			<H2 className="mx-1 flex-1 text-2xl">
 				{name ?? t("show.season", { number: seasonNumber })}
 			</H2>
+			<Menu Trigger={IconButton} icon={MoreVert} {...tooltip(t("misc.more"))}>
+				{account && (
+					<Menu.Item
+						label={t("show.watchlistMark.completed")}
+						icon={watchListIcon("completed")}
+						onSelect={async () => {
+							if (markAsSeen.isPending) return;
+
+							const page = await queryFn({
+								url: keyToUrl(
+									toQueryKey({
+										apiUrl,
+										path: ["api", "series", serieSlug, "entries"],
+										params: {
+											filter: `seasonNumber eq ${seasonNumber}`,
+											limit: 250,
+										},
+									}),
+								),
+								authToken: authToken ?? null,
+								parser: Paged(
+									z.object({
+										slug: z.string(),
+									}),
+								),
+							});
+							const entries = page.items.map((x) => x.slug);
+							if (entries.length === 0) return;
+							await markAsSeen.mutateAsync(entries);
+						}}
+					/>
+				)}
+			</Menu>
 			<Menu
 				Trigger={IconButton}
 				icon={MenuIcon}
