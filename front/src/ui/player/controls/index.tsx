@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type { ViewProps } from "react-native";
 import { View } from "react-native";
 import type { VideoPlayer } from "react-native-video";
-import type { Chapter, KImage } from "~/models";
+import type { Chapter, KImage, Show } from "~/models";
 import { useIsTouch } from "~/primitives";
 import { Back } from "./back";
 import { BottomControls } from "./bottom-controls";
@@ -14,6 +14,8 @@ export const Controls = ({
 	showHref,
 	name,
 	poster,
+	showKind,
+	showLogo,
 	subName,
 	chapters,
 	playPrev,
@@ -23,6 +25,8 @@ export const Controls = ({
 	showHref?: string;
 	name?: string;
 	poster?: KImage | null;
+	showKind?: Show["kind"];
+	showLogo?: KImage | null;
 	subName?: string;
 	chapters: Chapter[];
 	playPrev: (() => boolean) | null;
@@ -58,6 +62,8 @@ export const Controls = ({
 				<Back
 					showHref={showHref}
 					name={name}
+					kind={showKind}
+					logo={showLogo}
 					className="absolute top-0 w-full bg-slate-900/50 px-safe pt-safe"
 					{...hoverControls}
 				/>

@@ -17,6 +17,7 @@ export const Image = ({
 	quality,
 	alt,
 	className,
+	contentFit = "cover",
 	...props
 }: {
 	src: KImage | null;
@@ -24,6 +25,7 @@ export const Image = ({
 	alt?: string;
 	style?: ImageStyle;
 	className?: string;
+	contentFit?: "cover" | "contain";
 }) => {
 	const { apiUrl, authToken } = useToken();
 
@@ -50,6 +52,7 @@ export const Image = ({
 			}}
 			placeholder={{ blurhash: src?.blurhash }}
 			accessibilityLabel={alt}
+			contentFit={contentFit}
 			className={cn("overflow-hidden rounded bg-gray-300", className)}
 			{...props}
 		/>

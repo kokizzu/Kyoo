@@ -43,7 +43,7 @@ func (t *Transcoder) getFileStream(path string, sha string) (*FileStream, error)
 	})
 	ret.ready.Wait()
 	if ret.err != nil {
-		t.streams.Remove(path)
+		t.streams.Remove(sha)
 		return nil, ret.err
 	}
 	return ret, nil

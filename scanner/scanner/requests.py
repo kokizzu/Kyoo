@@ -56,8 +56,6 @@ class RequestCreator:
 			"""
 			delete from scanner.requests
 			where status = 'failed'
-				or (status = 'running'
-					and now() - started_at > interval '1 hour')
 			"""
 		)
 
@@ -136,6 +134,10 @@ class RequestProcessor:
 						scanner.requests
 					where
 						status = 'pending'
+						or (
+							status = 'running'
+							and now() - started_at > interval '30 minutes'
+						)
 					limit 1
 					for update
 						skip locked)

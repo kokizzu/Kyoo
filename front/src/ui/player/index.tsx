@@ -191,6 +191,8 @@ export const Player = () => {
 					showHref={data?.show?.href}
 					name={data?.show?.name ?? data?.path}
 					poster={data ? (data.show?.poster ?? null) : undefined}
+					showKind={data?.show?.kind}
+					showLogo={data?.show?.logo ?? null}
 					subName={
 						entry
 							? [entryDisplayNumber(entry), entry.name]

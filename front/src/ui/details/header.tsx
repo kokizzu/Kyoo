@@ -36,6 +36,7 @@ import {
 	HR,
 	IconButton,
 	IconFab,
+	Image,
 	ImageBackground,
 	LI,
 	Link,
