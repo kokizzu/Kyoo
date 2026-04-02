@@ -100,11 +100,11 @@ func GetMimeCodec(stream *ffprobe.Stream) *string {
 		return &ret
 
 	case "ac3":
-		ret := "mp4a.a5"
+		ret := "ac-3"
 		return &ret
 
 	case "eac3":
-		ret := "mp4a.a6"
+		ret := "ec-3"
 		return &ret
 
 	case "flac":
