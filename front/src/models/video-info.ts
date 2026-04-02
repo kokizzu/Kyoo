@@ -35,6 +35,7 @@ export const AudioTrack = z.object({
 	language: z.string().nullable(),
 	codec: z.string(),
 	mimeCodec: z.string().nullable(),
+	channels: z.int(),
 	bitrate: z.number(),
 	isDefault: z.boolean(),
 });

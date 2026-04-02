@@ -311,6 +311,7 @@
 		"video": "Video",
 		"audio": "Audio",
 		"subtitles": "Subtitles",
+		"channels": "{{channels}} Channels",
 		"forced": "Forced",
 		"hearing-impaired": "CC",
 		"default": "Default",

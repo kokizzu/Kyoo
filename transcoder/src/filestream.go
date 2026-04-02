@@ -77,52 +77,12 @@ func (fs *FileStream) Destroy() {
 func (fs *FileStream) GetMaster(client string) string {
 	master := "#EXTM3U\n"
 
-	for _, audio := range fs.Info.Audios {
-		for _, quality := range AudioQualities {
-			master += "#EXT-X-MEDIA:TYPE=AUDIO,"
-			master += fmt.Sprintf("GROUP-ID=\"audio-%s\",", quality)
-			if audio.Language != nil {
-				master += fmt.Sprintf("LANGUAGE=\"%s\",", *audio.Language)
-			}
-			if audio.Title != nil {
-				master += fmt.Sprintf("NAME=\"%s\",", *audio.Title)
-			} else if audio.Language != nil {
-				master += fmt.Sprintf("NAME=\"%s\",", *audio.Language)
-			} else {
-				master += fmt.Sprintf("NAME=\"Audio %d\",", audio.Index)
-			}
-			if audio.IsDefault {
-				master += "DEFAULT=YES,"
-			}
-			master += "CHANNELS=\"2\","
-			master += fmt.Sprintf("URI=\"audio/%d/%s/index.m3u8?clientId=%s\"\n", audio.Index, quality, client)
-		}
-		master += "#EXT-X-MEDIA:TYPE=AUDIO,"
-		master += fmt.Sprintf("GROUP-ID=\"audio-%s\",", AOriginal)
-		if audio.Language != nil {
-			master += fmt.Sprintf("LANGUAGE=\"%s\",", *audio.Language)
-		}
-		if audio.Title != nil {
-			master += fmt.Sprintf("NAME=\"%s\",", *audio.Title)
-		} else if audio.Language != nil {
-			master += fmt.Sprintf("NAME=\"%s\",", *audio.Language)
-		} else {
-			master += fmt.Sprintf("NAME=\"Audio %d\",", audio.Index)
-		}
-		if audio.IsDefault {
-			master += "DEFAULT=YES,"
-		}
-		master += "CHANNELS=\"2\"," // TODO
-		master += fmt.Sprintf("URI=\"audio/%d/%s/index.m3u8?clientId=%s\"\n", audio.Index, AOriginal, client)
-	}
-
 	// codec is the prefix + the level, the level is not part of the codec we want to compare for the same_codec check bellow
 	transcode_prefix := "avc1.6400"
 	transcode_codec := transcode_prefix + "28"
 	transcode_audio_codec := "mp4a.40.2"
 
 	var def_video *Video
-	var def_audio *Audio
 	for _, video := range fs.Info.Videos {
 		if video.IsDefault {
 			def_video = &video
@@ -132,8 +92,51 @@ func (fs *FileStream) GetMaster(client string) string {
 	if def_video == nil && len(fs.Info.Videos) > 0 {
 		def_video = &fs.Info.Videos[0]
 	}
-	if len(fs.Info.Audios) > 0 {
+
+	var def_audio *Audio
+	for _, audio := range fs.Info.Audios {
+		if audio.IsDefault {
+			def_audio = &audio
+			break
+		}
+	}
+	if def_audio == nil && len(fs.Info.Audios) > 0 {
 		def_audio = &fs.Info.Audios[0]
+	}
+
+	if def_audio != nil {
+		aqualities := utils.Filter(AudioQualities, func(quality AudioQuality) bool {
+			return quality.Bitrate() < def_audio.Bitrate
+		})
+		aqualities = append(aqualities, AOriginal)
+
+		for _, audio := range fs.Info.Audios {
+			for _, quality := range slices.Backward(aqualities) {
+				master += "#EXT-X-MEDIA:TYPE=AUDIO,"
+				master += fmt.Sprintf("GROUP-ID=\"a-%s\",", quality)
+				if audio.Language != nil {
+					master += fmt.Sprintf("LANGUAGE=\"%s\",", *audio.Language)
+				}
+				if audio.Title != nil {
+					master += fmt.Sprintf("NAME=\"%s\",", *audio.Title)
+				} else if audio.Language != nil {
+					master += fmt.Sprintf("NAME=\"%s\",", *audio.Language)
+				} else {
+					master += fmt.Sprintf("NAME=\"Audio %d\",", audio.Index)
+				}
+				if audio == *def_audio {
+					master += "DEFAULT=YES,"
+				}
+				if quality == AOriginal {
+					master += fmt.Sprintf("CHANNELS=\"%d\",", audio.Channels)
+				} else {
+					master += "CHANNELS=\"2\","
+				}
+				master += fmt.Sprintf("URI=\"audio/%d/%s/index.m3u8?clientId=%s\"\n", audio.Index, quality, client)
+			}
+			master += "\n"
+		}
+		master += "\n"
 	}
 
 	if def_video != nil {
@@ -148,8 +151,8 @@ func (fs *FileStream) GetMaster(client string) string {
 		}
 		qualities = append(qualities, Original)
 
-		for _, quality := range qualities {
-			for _, video := range fs.Info.Videos {
+		for _, video := range fs.Info.Videos {
+			for _, quality := range slices.Backward(qualities) {
 				master += "#EXT-X-MEDIA:TYPE=VIDEO,"
 				master += fmt.Sprintf("GROUP-ID=\"%s\",", quality)
 				if video.Language != nil {
@@ -168,6 +171,7 @@ func (fs *FileStream) GetMaster(client string) string {
 					master += fmt.Sprintf("URI=\"%d/%s/index.m3u8?clientId=%s\"\n", video.Index, quality, client)
 				}
 			}
+			master += "\n"
 		}
 		master += "\n"
 
@@ -178,23 +182,35 @@ func (fs *FileStream) GetMaster(client string) string {
 				if def_audio != nil && (def_audio.MimeCodec == nil || *def_audio.MimeCodec != transcode_audio_codec) {
 					audios = append(audios, matchAudioQuality(def_video.Quality()))
 				}
-				for _, audio_quality := range audios {
+				for _, aquality := range audios {
 					// original & noresize streams
 					bitrate := float64(def_video.Bitrate)
 					master += "#EXT-X-STREAM-INF:"
 					master += fmt.Sprintf("AVERAGE-BANDWIDTH=%d,", int(math.Min(bitrate*0.8, float64(def_video.Quality().AverageBitrate()))))
 					master += fmt.Sprintf("BANDWIDTH=%d,", int(math.Min(bitrate, float64(def_video.Quality().MaxBitrate()))))
 					master += fmt.Sprintf("RESOLUTION=%dx%d,", def_video.Width, def_video.Height)
-					var audio_codec = transcode_audio_codec
-					if def_audio != nil && audio_quality == AOriginal {
-						audio_codec = *def_audio.MimeCodec
+
+					codecs := make([]string, 0)
+					if quality == Original {
+						if def_video.MimeCodec != nil {
+							codecs = append(codecs, *def_video.MimeCodec)
+						}
+					} else {
+						codecs = append(codecs, transcode_codec)
 					}
-					if quality != Original {
-						master += fmt.Sprintf("CODECS=\"%s\",", strings.Join([]string{transcode_codec, audio_codec}, ","))
-					} else if def_video.MimeCodec != nil {
-						master += fmt.Sprintf("CODECS=\"%s\",", strings.Join([]string{*def_video.MimeCodec, audio_codec}, ","))
+					if aquality == AOriginal {
+						if def_audio != nil && def_audio.MimeCodec != nil {
+							codecs = append(codecs, *def_audio.MimeCodec)
+						}
+					} else {
+						codecs = append(codecs, transcode_audio_codec)
 					}
-					master += fmt.Sprintf("AUDIO=\"audio-%s\",", string(audio_quality))
+					if len(codecs) > 0 {
+						master += fmt.Sprintf("CODECS=\"%s\",", strings.Join(codecs, ","))
+					}
+					if def_audio != nil {
+						master += fmt.Sprintf("AUDIO=\"a-%s\",", string(aquality))
+					}
 					master += "CLOSED-CAPTIONS=NONE\n"
 					master += fmt.Sprintf("%d/%s/index.m3u8?clientId=%s\n", def_video.Index, quality, client)
 				}
@@ -206,7 +222,9 @@ func (fs *FileStream) GetMaster(client string) string {
 			master += fmt.Sprintf("BANDWIDTH=%d,", quality.MaxBitrate())
 			master += fmt.Sprintf("RESOLUTION=%dx%d,", int(aspectRatio*float32(quality.Height())+0.5), quality.Height())
 			master += fmt.Sprintf("CODECS=\"%s\",", strings.Join([]string{transcode_codec, transcode_audio_codec}, ","))
-			master += fmt.Sprintf("AUDIO=\"audio-%s\",", string(matchAudioQuality(quality)))
+			if def_audio != nil {
+				master += fmt.Sprintf("AUDIO=\"a-%s\",", string(matchAudioQuality(quality)))
+			}
 			master += "CLOSED-CAPTIONS=NONE\n"
 			master += fmt.Sprintf("%d/%s/index.m3u8?clientId=%s\n", def_video.Index, quality, client)
 		}

@@ -94,6 +94,7 @@ export const Info = () => {
 								? t("mediainfo.default")
 								: undefined,
 							x.codec,
+							t("mediainfo.channels", { channels: x.channels }),
 						]
 							.filter((x) => x)
 							.join(" - ")}

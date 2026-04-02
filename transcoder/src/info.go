@@ -17,7 +17,7 @@ import (
 	"gopkg.in/vansante/go-ffprobe.v2"
 )
 
-const InfoVersion = 3
+const InfoVersion = 4
 
 type Versions struct {
 	Info      int32 `json:"info" db:"ver_info"`
@@ -98,6 +98,8 @@ type Audio struct {
 	Codec string `json:"codec" db:"codec"`
 	/// The codec of this stream (defined as the RFC 6381).
 	MimeCodec *string `json:"mimeCodec" db:"mime_codec"`
+	/// The number of channels that stream has.
+	Channels int `json:"channels" db:"channels"`
 	/// The average bitrate of the audio in bytes/s
 	Bitrate uint32 `json:"bitrate" db:"bitrate"`
 	/// Is this stream the default one of it's type?
@@ -280,6 +282,7 @@ func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
 				Language:  NullIfUnd(lang.String()),
 				Codec:     stream.CodecName,
 				MimeCodec: GetMimeCodec(stream),
+				Channels:  stream.Channels,
 				Bitrate:   ParseUint(cmp.Or(stream.BitRate, mi.Format.BitRate)),
 				IsDefault: stream.Disposition.Default != 0,
 			}
