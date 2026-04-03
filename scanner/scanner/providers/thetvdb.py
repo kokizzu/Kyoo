@@ -541,6 +541,8 @@ class TVDB(Provider):
 				thumbnail=f"https://artworks.thetvdb.com{entry['image']}"
 				if entry["image"]
 				else None,
+				# Mark specials as non-critical, waiting for https://github.com/thetvdb/v4-api/issues/350
+				criticalToStory=entry["seasonNumber"] != 0 or entry["isMovie"],
 				slug=None,
 				season_number=entry["seasonNumber"],
 				episode_number=entry["number"],

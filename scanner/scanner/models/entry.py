@@ -15,6 +15,7 @@ class Entry(Model):
 	runtime: int | None
 	air_date: date | None
 	thumbnail: str | None
+	criticalToStory: bool
 
 	# Movie-specific fields
 	slug: str | None

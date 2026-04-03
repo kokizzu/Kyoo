@@ -556,6 +556,7 @@ class TheMovieDatabase(Provider):
 			if episode["air_date"]
 			else None,
 			thumbnail=self._map_image(episode["still_path"]),
+			criticalToStory=True,
 			slug=None,
 			season_number=episode["season_number"],
 			episode_number=episode["episode_number"],
