@@ -198,6 +198,7 @@ async function updateWatchlist(
 			and(
 				eq(nextEntry.showPk, entries.showPk),
 				ne(nextEntry.kind, "extra"),
+				nextEntry.criticalToStory,
 				gt(nextEntry.order, entries.order),
 			),
 		)

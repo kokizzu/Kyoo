@@ -11,6 +11,7 @@ export const BaseEntry = () =>
 			}),
 		),
 		thumbnail: t.Nullable(Image),
+		criticalToStory: t.Boolean(),
 	});
 
 export const EntryTranslation = () =>

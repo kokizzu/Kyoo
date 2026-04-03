@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+    boolean,
 	check,
 	date,
 	index,
@@ -68,6 +69,7 @@ export const entries = schema.table(
 		airDate: date(),
 		runtime: integer(),
 		thumbnail: image(),
+		criticalToStory: boolean().notNull(),
 
 		externalId: entry_extid(),
 

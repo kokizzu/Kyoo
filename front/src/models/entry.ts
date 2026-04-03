@@ -14,6 +14,8 @@ const Base = z.object({
 	runtime: z.number().nullable(),
 	thumbnail: KImage.nullable(),
 
+	criticalToStory: z.boolean(),
+
 	createdAt: zdate(),
 	updatedAt: zdate(),
 
