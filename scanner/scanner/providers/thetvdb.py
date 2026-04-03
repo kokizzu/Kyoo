@@ -622,7 +622,7 @@ class TVDB(Provider):
 			)
 
 		# handle specials and such that are between seasons
-		for entry in ret:
+		for entry in reversed(ret):
 			if entry.order != 0:
 				continue
 
@@ -637,7 +637,11 @@ class TVDB(Provider):
 				)
 				after = min((x.order for x in ret if x.order > before), default=before)
 				entry.order = (before + after) / 2
-			elif entry.extra["airs_before_season"] is not None:
+
+		for entry in ret:
+			if entry.order != 0:
+				continue
+			if entry.extra["airs_before_season"] is not None:
 				before = (
 					next(
 						(
