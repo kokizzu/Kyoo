@@ -28,7 +28,7 @@ beforeAll(async () => {
 });
 
 const miaEntrySlug = `${madeInAbyss.slug}-s1e13`;
-const miaNextEntrySlug = `${madeInAbyss.slug}-sp3`;
+const miaNextEntrySlug = "made-in-abyss-dawn-of-the-deep-soul";
 
 describe("nextup", () => {
 	it("Watchlist populates nextup", async () => {

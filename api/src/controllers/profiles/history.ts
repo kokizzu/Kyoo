@@ -377,7 +377,7 @@ export const historyH = new Elysia({ tags: ["profiles"] })
 							userId: sub,
 							progressQ: historyProgressQ,
 							relations: ["show"],
-						})) as Entry[];
+						})) as (Entry & { show: Show })[];
 
 						return createPage(items, { url, sort, limit, headers });
 					},

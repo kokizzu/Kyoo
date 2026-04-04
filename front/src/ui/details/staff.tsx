@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { type KImage, Role } from "~/models";
 import { Container, H2, Link, P, Poster, Skeleton, SubP } from "~/primitives";
 import { InfiniteGrid, type QueryIdentifier } from "~/query";
+import { cn } from "~/utils";
 import { EmptyView } from "../empty-view";
 
 export const CharacterCard = ({
