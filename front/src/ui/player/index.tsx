@@ -239,6 +239,7 @@ export const Player = () => {
 					onClose={() => setEntriesMenuOpen(false)}
 					showSlug={data.show.slug}
 					season={entry?.kind === "episode" ? entry.seasonNumber : 0}
+					currentEntrySlug={entry?.slug}
 				/>
 			)}
 			{playbackError && (

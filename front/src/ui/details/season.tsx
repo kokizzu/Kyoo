@@ -156,6 +156,7 @@ SeasonHeader.query = (slug: string): QueryIdentifier<Season> => ({
 export const EntryList = ({
 	slug,
 	season,
+	currentEntrySlug,
 	onSelectVideos,
 	search,
 	withContainer,
@@ -164,6 +165,7 @@ export const EntryList = ({
 }: {
 	slug: string;
 	season: string | number;
+	currentEntrySlug?: string;
 	onSelectVideos?: (entry: {
 		displayNumber: string;
 		name: string | null;
@@ -211,6 +213,11 @@ export const EntryList = ({
 						<EntryLine
 							{...item}
 							videos={item.videos}
+							className={
+								item.slug === currentEntrySlug
+									? "rounded-md bg-accent/10"
+									: undefined
+							}
 							// Don't display "Go to serie"
 							serieSlug={null}
 							displayNumber={entryDisplayNumber(item)}

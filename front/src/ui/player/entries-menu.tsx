@@ -7,19 +7,21 @@ export const EntriesMenu = ({
 	onClose,
 	showSlug,
 	season,
+	currentEntrySlug,
 }: {
 	isOpen: boolean;
 	onClose: () => void;
 	showSlug: string;
 	season: string | number;
+	currentEntrySlug?: string;
 }) => {
 	return (
-		<SideMenu
-			isOpen={isOpen}
-			onClose={onClose}
-			containerClassName="bg-card"
-		>
-			<EntryList slug={showSlug} season={season} />
+		<SideMenu isOpen={isOpen} onClose={onClose} containerClassName="bg-card">
+			<EntryList
+				slug={showSlug}
+				season={season}
+				currentEntrySlug={currentEntrySlug}
+			/>
 		</SideMenu>
 	);
 };
