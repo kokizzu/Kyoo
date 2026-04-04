@@ -16,10 +16,12 @@ export const FullVideo = t.Composite([
 		previous: t.Optional(
 			t.Nullable(
 				t.Object({
-					video: t.String({
-						format: "slug",
-						examples: ["made-in-abyss-s1e12"],
-					}),
+					video: t.Nullable(
+						t.String({
+							format: "slug",
+							examples: ["made-in-abyss-s1e12"],
+						}),
+					),
 					entry: Entry,
 				}),
 			),
@@ -27,10 +29,12 @@ export const FullVideo = t.Composite([
 		next: t.Optional(
 			t.Nullable(
 				t.Object({
-					video: t.String({
-						format: "slug",
-						examples: ["made-in-abyss-dawn-of-the-deep-soul"],
-					}),
+					video: t.Nullable(
+						t.String({
+							format: "slug",
+							examples: ["made-in-abyss-dawn-of-the-deep-soul"],
+						}),
+					),
 					entry: Entry,
 				}),
 			),

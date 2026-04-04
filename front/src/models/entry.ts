@@ -14,6 +14,8 @@ const Base = z.object({
 	runtime: z.number().nullable(),
 	thumbnail: KImage.nullable(),
 
+	content: z.enum(["story", "recap", "filler", "ova"]),
+
 	createdAt: zdate(),
 	updatedAt: zdate(),
 

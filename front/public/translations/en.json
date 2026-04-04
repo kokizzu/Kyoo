@@ -49,7 +49,7 @@
 		"part": "Part {{number}}",
 		"videos-map": "Edit video mappings",
 		"remap": "Remap",
-		"staff-as":"as {{character}}",
+		"staff-as": "as {{character}}",
 		"staff-kind": {
 			"actor": "Actor",
 			"director": "Director",
@@ -253,7 +253,9 @@
 		"transmux": "Original",
 		"auto": "Auto",
 		"notInPristine": "Unavailable in pristine",
-		"unsupportedError": "Video codec not supported, transcoding in progress..."
+		"unsupportedError": "Video codec not supported, transcoding in progress...",
+		"not-available": "{{entry}} is not available on kyoo yet, ask your server admins about it",
+		"fatal": "Fatal playback error"
 	},
 	"search": {
 		"empty": "No result found. Try a different query."

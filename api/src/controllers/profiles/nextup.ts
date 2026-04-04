@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, lt, or, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { auth } from "~/auth";
 import { db } from "~/db";
@@ -118,6 +118,10 @@ export const nextup = new Elysia({ tags: ["profiles"] })
 				.leftJoin(entryProgressQ, eq(entries.pk, entryProgressQ.entryPk))
 				.where(
 					and(
+						or(
+							lt(entries.airDate, sql`now()`),
+							isNotNull(entries.availableSince),
+						),
 						filter,
 						query ? sql`${transQ.name} %> ${query}::text` : undefined,
 						keysetPaginate({ after, sort }),

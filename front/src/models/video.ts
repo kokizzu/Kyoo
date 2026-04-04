@@ -49,8 +49,14 @@ export const FullVideo = Video.extend({
 		playedDate: zdate().nullable(),
 		videoId: z.string().nullable(),
 	}),
-	previous: z.object({ video: z.string(), entry: Entry }).nullable().optional(),
-	next: z.object({ video: z.string(), entry: Entry }).nullable().optional(),
+	previous: z
+		.object({ video: z.string().nullable(), entry: Entry })
+		.nullable()
+		.optional(),
+	next: z
+		.object({ video: z.string().nullable(), entry: Entry })
+		.nullable()
+		.optional(),
 	show: Show.optional().nullable(),
 });
 export type FullVideo = z.infer<typeof FullVideo>;

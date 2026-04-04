@@ -246,8 +246,13 @@ EntryList.query = (
 	path: ["api", "series", slug, "entries"],
 	params: {
 		query,
-		// TODO: use a better filter, it removes specials and movies
-		filter: season ? `seasonNumber ge ${season}` : undefined,
+		filter: [
+			// TODO: use a better filter, it removes specials and movies
+			season && `seasonNumber ge ${season}`,
+			"(kind eq episode or isAvailable eq true or content eq story)",
+		]
+			.filter((x) => x)
+			.join(" and "),
 		includeSeasons: true,
 	},
 	infinite: true,

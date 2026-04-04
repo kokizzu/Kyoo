@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import Field
@@ -9,12 +10,20 @@ from ..utils import Language, Model
 from .metadataid import EpisodeId, MetadataId
 
 
+class EntryContent(str, Enum):
+	STORY = "story"
+	RECAP = "recap"
+	FILLER = "filler"
+	OVA = "ova"
+
+
 class Entry(Model):
 	kind: Literal["episode", "movie", "special"]
 	order: float
 	runtime: int | None
 	air_date: date | None
 	thumbnail: str | None
+	content: EntryContent
 
 	# Movie-specific fields
 	slug: str | None

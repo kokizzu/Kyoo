@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { type KImage, Role } from "~/models";
 import { Container, H2, Link, P, Poster, Skeleton, SubP } from "~/primitives";
 import { InfiniteGrid, type QueryIdentifier } from "~/query";
+import { cn } from "~/utils";
 import { EmptyView } from "../empty-view";
 
 export const CharacterCard = ({
@@ -21,11 +22,17 @@ export const CharacterCard = ({
 	return (
 		<Link
 			href={href}
-			className="flex-row items-center overflow-hidden rounded-xl bg-card"
+			className={cn(
+				"flex-row items-center overflow-hidden rounded-xl bg-card",
+				"group ring-accent hover:ring-3 focus-visible:ring-3",
+			)}
 		>
 			<Poster src={image} quality="low" className="w-28" />
 			<View className="flex-1 items-center justify-center py-5">
-				<P className="text-center font-semibold" numberOfLines={2}>
+				<P
+					className="text-center font-semibold group-hover:underline group-focus-visible:underline"
+					numberOfLines={2}
+				>
 					{name}
 				</P>
 				<SubP className="mt-1 text-center" numberOfLines={2}>

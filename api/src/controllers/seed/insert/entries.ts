@@ -59,6 +59,7 @@ export const insertEntries = record(
 				const { translations, videos, video, ...entry } = seed;
 				return {
 					...entry,
+					content: entry.kind !== "extra" ? entry.content : "story",
 					showPk: show.pk,
 					slug: generateSlug(show.slug, seed),
 					thumbnail: enqueueOptImage(imgQueue, {

@@ -175,6 +175,7 @@ export const madeInAbyss = {
 	entries: [
 		{
 			kind: "episode",
+			content: "story",
 			order: 13,
 			seasonNumber: 1,
 			episodeNumber: 13,
@@ -203,6 +204,7 @@ export const madeInAbyss = {
 		},
 		{
 			kind: "special",
+			content: "ova",
 			// between s1e13 & movie (which has 13.5 for the `order field`)
 			order: 13.25,
 			number: 3,
@@ -230,6 +232,7 @@ export const madeInAbyss = {
 		},
 		{
 			kind: "movie",
+			content: "story",
 			slug: "made-in-abyss-dawn-of-the-deep-soul",
 			order: 13.5,
 			translations: {
@@ -257,6 +260,7 @@ export const madeInAbyss = {
 		},
 		{
 			kind: "episode",
+			content: "story",
 			order: 14,
 			seasonNumber: 2,
 			episodeNumber: 1,
@@ -284,6 +288,7 @@ export const madeInAbyss = {
 		},
 		{
 			kind: "episode",
+			content: "story",
 			order: 15,
 			seasonNumber: 2,
 			episodeNumber: 2,
@@ -311,6 +316,7 @@ export const madeInAbyss = {
 		},
 		{
 			kind: "episode",
+			content: "story",
 			order: 16,
 			seasonNumber: 2,
 			episodeNumber: 3,
@@ -338,6 +344,7 @@ export const madeInAbyss = {
 		},
 		{
 			kind: "episode",
+			content: "story",
 			order: 17,
 			seasonNumber: 2,
 			episodeNumber: 4,

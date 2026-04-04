@@ -24,6 +24,13 @@ export const entryType = schema.enum("entry_type", [
 	"extra",
 ]);
 
+export const entryContent = schema.enum("entry_content", [
+	"story",
+	"recap",
+	"filler",
+	"ova",
+]);
+
 export const entry_extid = () =>
 	jsonb()
 		.$type<
@@ -68,6 +75,7 @@ export const entries = schema.table(
 		airDate: date(),
 		runtime: integer(),
 		thumbnail: image(),
+		content: entryContent().notNull(),
 
 		externalId: entry_extid(),
 

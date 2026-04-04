@@ -11,7 +11,7 @@ from aiohttp import ClientResponseError, ClientSession
 from langcodes import Language
 
 from ..models.collection import Collection, CollectionTranslation
-from ..models.entry import Entry, EntryTranslation
+from ..models.entry import Entry, EntryContent, EntryTranslation
 from ..models.genre import Genre
 from ..models.metadataid import EpisodeId, MetadataId, SeasonId
 from ..models.movie import Movie, MovieStatus, MovieTranslation, SearchMovie
@@ -556,6 +556,7 @@ class TheMovieDatabase(Provider):
 			if episode["air_date"]
 			else None,
 			thumbnail=self._map_image(episode["still_path"]),
+			content=EntryContent.STORY,
 			slug=None,
 			season_number=episode["season_number"],
 			episode_number=episode["episode_number"],

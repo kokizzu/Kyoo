@@ -96,6 +96,7 @@ export const seedMovie = async (
 		{
 			...movie,
 			kind: "movie",
+			content: "story",
 			order: 1,
 			thumbnail: (movie.originalLanguage
 				? translations[movie.originalLanguage]

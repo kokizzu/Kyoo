@@ -2,6 +2,7 @@ import "react-native-get-random-values";
 
 import { Stack, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Platform, StyleSheet, View } from "react-native";
 import { useEvent, useVideoPlayer, VideoView } from "react-native-video";
 import { v4 as uuidv4 } from "uuid";
@@ -14,6 +15,7 @@ import { type QueryIdentifier, useFetch } from "~/query";
 import { Info } from "~/ui/info";
 import { useQueryState } from "~/utils";
 import { Controls, LoadingIndicator } from "./controls";
+import { ErrorPopup } from "./controls/error-popup";
 import { toggleFullscreen } from "./controls/misc";
 import { PlayModeContext } from "./controls/tracks-menu";
 import { useKeyboard } from "./keyboard";
@@ -45,6 +47,7 @@ export const Player = () => {
 	);
 	const playModeState = useState(defaultPlayMode);
 	const [playMode, setPlayMode] = playModeState;
+	const [playbackError, setPlaybackError] = useState<KyooError | undefined>();
 	const player = useVideoPlayer(
 		{
 			uri: `${apiUrl}/api/videos/${slug}/${playMode === "direct" ? "direct" : "master.m3u8"}?clientId=${clientId}`,
@@ -101,18 +104,39 @@ export const Player = () => {
 	}, [player, info?.fonts]);
 
 	const router = useRouter();
+	const { t } = useTranslation();
 	const playPrev = useCallback(() => {
 		if (!data?.previous) return false;
+		if (!data.previous.video) {
+			setPlaybackError({
+				status: "not-available",
+				message: t("player.not-available", {
+					entry: `${entryDisplayNumber(data.previous.entry)} ${data.previous.entry.name}`,
+				}),
+			});
+			return true;
+		}
+		setPlaybackError(undefined);
 		setStart("0");
 		setSlug(data.previous.video);
 		return true;
-	}, [data?.previous, setSlug, setStart]);
+	}, [data?.previous, setSlug, setStart, t]);
 	const playNext = useCallback(() => {
 		if (!data?.next) return false;
+		if (!data.next.video) {
+			setPlaybackError({
+				status: "not-available",
+				message: t("player.not-available", {
+					entry: `${entryDisplayNumber(data.next.entry)} ${data.next.entry.name}`,
+				}),
+			});
+			return true;
+		}
+		setPlaybackError(undefined);
 		setStart("0");
 		setSlug(data.next.video);
 		return true;
-	}, [data?.next, setSlug, setStart]);
+	}, [data?.next, setSlug, setStart, t]);
 
 	useProgressObserver(
 		player,
@@ -148,7 +172,6 @@ export const Player = () => {
 		};
 	}, []);
 
-	const [playbackError, setPlaybackError] = useState<KyooError | undefined>();
 	useEvent(player, "onError", (error) => {
 		if (
 			error.code === "source/unsupported-content-type" &&
@@ -157,9 +180,6 @@ export const Player = () => {
 			setPlayMode("hls");
 		else setPlaybackError({ status: error.code, message: error.message });
 	});
-	if (playbackError) {
-		throw playbackError;
-	}
 
 	return (
 		<View className="flex-1 bg-black">
@@ -201,10 +221,17 @@ export const Player = () => {
 							: data?.path
 					}
 					chapters={info?.chapters ?? []}
-					playPrev={data?.previous?.video ? playPrev : null}
-					playNext={data?.next?.video ? playNext : null}
+					playPrev={data?.previous ? playPrev : null}
+					playNext={data?.next ? playNext : null}
+					forceShow={!!playbackError}
 				/>
 			</PlayModeContext.Provider>
+			{playbackError && (
+				<ErrorPopup
+					message={playbackError.message}
+					dismiss={() => setPlaybackError(undefined)}
+				/>
+			)}
 		</View>
 	);
 };

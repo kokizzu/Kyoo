@@ -218,6 +218,13 @@
 			"when": 1774974162419,
 			"tag": "0030_external_hist",
 			"breakpoints": true
+		},
+		{
+			"idx": 31,
+			"version": "7",
+			"when": 1775238108619,
+			"tag": "0031_entry-content",
+			"breakpoints": true
 		}
 	]
 }

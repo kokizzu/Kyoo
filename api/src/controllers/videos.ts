@@ -247,7 +247,7 @@ function getNextVideoEntry({
 		.leftJoin(entryProgressQ, eq(entries.pk, entryProgressQ.entryPk))
 		.crossJoinLateral(entryVideosQ)
 		.leftJoin(entryVideoJoin, eq(entries.pk, entryVideoJoin.entryPk))
-		.innerJoin(vids, eq(vids.pk, entryVideoJoin.videoPk))
+		.leftJoin(vids, eq(vids.pk, entryVideoJoin.videoPk))
 		.where(
 			and(
 				// either way it needs to be of the same show
@@ -277,6 +277,7 @@ function getNextVideoEntry({
 						eq(vids.part, sql`${videos.part} ${sql.raw(prev ? "-" : "+")} 1`),
 					),
 				),
+				eq(entries.content, "story"),
 			),
 		)
 		.orderBy(

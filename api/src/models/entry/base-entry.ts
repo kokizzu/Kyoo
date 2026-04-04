@@ -1,6 +1,8 @@
 import { t } from "elysia";
 import { Image } from "../utils/image";
 
+export const EntryContent = t.UnionEnum(["story", "recap", "filler", "ova"]);
+
 export const BaseEntry = () =>
 	t.Object({
 		airDate: t.Nullable(t.String({ format: "date" })),
@@ -11,6 +13,7 @@ export const BaseEntry = () =>
 			}),
 		),
 		thumbnail: t.Nullable(Image),
+		content: EntryContent,
 	});
 
 export const EntryTranslation = () =>

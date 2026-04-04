@@ -20,6 +20,7 @@ import { coalesce, sqlarr } from "~/db/utils";
 import { Entry } from "~/models/entry";
 import { KError } from "~/models/error";
 import { SeedHistory } from "~/models/history";
+import { Show } from "~/models/show";
 import {
 	AcceptLanguage,
 	createPage,
@@ -198,6 +199,7 @@ async function updateWatchlist(
 			and(
 				eq(nextEntry.showPk, entries.showPk),
 				ne(nextEntry.kind, "extra"),
+				eq(nextEntry.content, "story"),
 				gt(nextEntry.order, entries.order),
 			),
 		)
@@ -366,15 +368,16 @@ export const historyH = new Elysia({ tags: ["profiles"] })
 							query,
 							sort,
 							filter: and(
-								isNotNull(entryProgressQ.playedDate),
-								eq(entryProgressQ.external, false),
+								isNotNull(historyProgressQ.playedDate),
+								eq(historyProgressQ.external, false),
 								ne(entries.kind, "extra"),
 								filter,
 							),
 							languages: langs,
 							userId: sub,
 							progressQ: historyProgressQ,
-						})) as Entry[];
+							relations: ["show"],
+						})) as (Entry & { show: Show })[];
 
 						return createPage(items, { url, sort, limit, headers });
 					},
@@ -386,7 +389,7 @@ export const historyH = new Elysia({ tags: ["profiles"] })
 							"accept-language": AcceptLanguage({ autoFallback: true }),
 						}),
 						response: {
-							200: Page(Entry),
+							200: Page(t.Intersect([Entry, t.Object({ show: Show })])),
 						},
 					},
 				)

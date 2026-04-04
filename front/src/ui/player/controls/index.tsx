@@ -20,6 +20,7 @@ export const Controls = ({
 	chapters,
 	playPrev,
 	playNext,
+	forceShow,
 }: {
 	player: VideoPlayer;
 	showHref?: string;
@@ -31,6 +32,7 @@ export const Controls = ({
 	chapters: Chapter[];
 	playPrev: (() => boolean) | null;
 	playNext: (() => boolean) | null;
+	forceShow?: boolean;
 }) => {
 	const isTouch = useIsTouch();
 
@@ -56,7 +58,7 @@ export const Controls = ({
 		<View className="absolute inset-0">
 			<TouchControls
 				player={player}
-				forceShow={hover || menuOpened}
+				forceShow={hover || menuOpened || forceShow}
 				className="absolute inset-0"
 			>
 				<Back

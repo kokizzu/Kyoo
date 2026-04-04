@@ -45,7 +45,7 @@ export const NewsList = () => {
 						name={`${item.show!.name} ${entryDisplayNumber(item)}`}
 						description={item.name}
 						thumbnail={item.thumbnail ?? item.show!.thumbnail}
-						href={item.href ?? "#"}
+						href={item.href}
 						watchedPercent={item.progress.percent}
 						videos={item.videos}
 						onSelectVideos={() =>

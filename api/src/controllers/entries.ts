@@ -31,6 +31,7 @@ import {
 	MovieEntry,
 	Special,
 } from "~/models/entry";
+import { EntryContent } from "~/models/entry/base-entry";
 import { KError } from "~/models/error";
 import { madeInAbyss } from "~/models/examples";
 import { Season } from "~/models/season";
@@ -83,6 +84,7 @@ export const entryFilters: FilterDef = {
 	order: { column: entries.order, type: "float" },
 	runtime: { column: entries.runtime, type: "float" },
 	airDate: { column: entries.airDate, type: "date" },
+	content: { column: entries.content, type: "enum", values: EntryContent.enum },
 	playedDate: { column: entryProgressQ.playedDate, type: "date" },
 	isAvailable: { column: isNotNull(entries.availableSince), type: "bool" },
 };
