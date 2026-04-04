@@ -36,7 +36,7 @@ export const EntryBox = ({
 	serieSlug: string | null;
 	name: string | null;
 	description: string | null;
-	href: string;
+	href: string | null;
 	thumbnail: KImage | null;
 	watchedPercent: number;
 	videos: Entry["videos"];
@@ -51,7 +51,11 @@ export const EntryBox = ({
 			href={moreOpened || videos.length > 1 ? undefined : href}
 			onPress={videos.length > 1 ? onSelectVideos : undefined}
 			onLongPress={() => setMoreOpened(true)}
-			className={cn("group w-[350px] items-center p-1 outline-0", className)}
+			className={cn(
+				"group w-[350px] items-center p-1 outline-0",
+				href === null && "opacity-50",
+				className,
+			)}
 			{...props}
 		>
 			<ThumbnailBackground

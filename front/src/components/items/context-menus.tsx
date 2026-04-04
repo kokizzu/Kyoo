@@ -56,18 +56,18 @@ export const EntryContext = ({
 			{...tooltip(t("misc.more"))}
 			{...(props as any)}
 		>
-			{account && (
-				<Menu.Item
-					label={t("show.watchlistMark.completed")}
-					icon={watchListIcon("completed")}
-					onSelect={() => markAsSeenMutation.mutate()}
-				/>
-			)}
 			{serieSlug && (
 				<Menu.Item
 					label={t("home.episodeMore.goToShow")}
 					icon={Info}
 					href={`/${kind === "movie" ? "movies" : "series"}/${serieSlug}`}
+				/>
+			)}
+			{account && (
+				<Menu.Item
+					label={t("show.watchlistMark.completed")}
+					icon={watchListIcon("completed")}
+					onSelect={() => markAsSeenMutation.mutate()}
 				/>
 			)}
 			{/* <Menu.Item */}

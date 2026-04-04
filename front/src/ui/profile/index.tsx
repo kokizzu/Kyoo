@@ -103,7 +103,7 @@ const ProfileHeader = ({
 							}
 							description={item.name}
 							thumbnail={item.thumbnail ?? item.show?.thumbnail ?? null}
-							href={item.href ?? "#"}
+							href={item.href}
 							watchedPercent={item.progress.percent}
 							videos={item.videos}
 							onSelectVideos={() => {}}
