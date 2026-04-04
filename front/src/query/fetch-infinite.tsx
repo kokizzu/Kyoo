@@ -24,6 +24,7 @@ export const InfiniteFetch = <Data, Type extends string = string>({
 	query,
 	placeholderCount = 4,
 	incremental = false,
+	getKey,
 	getItemType,
 	getItemSizeMult,
 	getStickyIndices,
@@ -43,6 +44,7 @@ export const InfiniteFetch = <Data, Type extends string = string>({
 	placeholderCount?: number;
 	layout: Layout;
 	horizontal?: boolean;
+	getKey?: (item: Data, index: number) => string;
 	getItemType?: (item: Data, index: number) => Type;
 	getItemSizeMult?: (item: Data, index: number, type: Type) => number;
 	getStickyIndices?: (items: Data[]) => number[];
@@ -94,7 +96,10 @@ export const InfiniteFetch = <Data, Type extends string = string>({
 			renderItem={({ item, index }) =>
 				item ? <Render index={index} item={item} /> : <Loader index={index} />
 			}
-			keyExtractor={(item: any, index) => (item ? item.id : index + 1)}
+			keyExtractor={(item: any, index) => {
+				if (!item) return index + 1;
+				return getKey ? getKey(item, index) : item.id;
+			}}
 			horizontal={layout.layout === "horizontal"}
 			numColumns={layout.layout === "horizontal" ? 1 : numColumns}
 			onEndReached={

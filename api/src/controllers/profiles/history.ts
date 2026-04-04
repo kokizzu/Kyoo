@@ -20,6 +20,7 @@ import { coalesce, sqlarr } from "~/db/utils";
 import { Entry } from "~/models/entry";
 import { KError } from "~/models/error";
 import { SeedHistory } from "~/models/history";
+import { Show } from "~/models/show";
 import {
 	AcceptLanguage,
 	createPage,
@@ -367,14 +368,15 @@ export const historyH = new Elysia({ tags: ["profiles"] })
 							query,
 							sort,
 							filter: and(
-								isNotNull(entryProgressQ.playedDate),
-								eq(entryProgressQ.external, false),
+								isNotNull(historyProgressQ.playedDate),
+								eq(historyProgressQ.external, false),
 								ne(entries.kind, "extra"),
 								filter,
 							),
 							languages: langs,
 							userId: sub,
 							progressQ: historyProgressQ,
+							relations: ["show"],
 						})) as Entry[];
 
 						return createPage(items, { url, sort, limit, headers });
@@ -387,7 +389,7 @@ export const historyH = new Elysia({ tags: ["profiles"] })
 							"accept-language": AcceptLanguage({ autoFallback: true }),
 						}),
 						response: {
-							200: Page(Entry),
+							200: Page(t.Intersect([Entry, t.Object({ show: Show })])),
 						},
 					},
 				)

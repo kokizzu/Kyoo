@@ -31,6 +31,7 @@ import {
 	MovieEntry,
 	Special,
 } from "~/models/entry";
+import { EntryContent } from "~/models/entry/base-entry";
 import { KError } from "~/models/error";
 import { madeInAbyss } from "~/models/examples";
 import { Season } from "~/models/season";
