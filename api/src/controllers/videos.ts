@@ -278,6 +278,8 @@ function getNextVideoEntry({
 					),
 				),
 				eq(entries.content, "story"),
+				// skip TBA episodes in the `next` field
+				or(isNotNull(entries.availableSince), lt(entries.airDate, sql`now()`)),
 			),
 		)
 		.orderBy(

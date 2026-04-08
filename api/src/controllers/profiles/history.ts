@@ -34,7 +34,7 @@ import type { WatchlistStatus } from "~/models/watchlist";
 import { traverse } from "~/utils";
 import {
 	entryFilters,
-	entryProgressQ,
+	type entryProgressQ,
 	entrySort,
 	getEntries,
 } from "../entries";
