@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next";
 import { SideMenu } from "~/primitives";
 import { EntryList } from "~/ui/details/season";
 

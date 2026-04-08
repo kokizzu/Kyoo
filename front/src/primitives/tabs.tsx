@@ -32,6 +32,7 @@ export const Tabs = <T,>({
 	return (
 		<ScrollView
 			horizontal
+			// @ts-expect-error uniwind special props
 			containerClassName={cn("shrink flex-row items-center", className)}
 			className={cn(
 				"rounded-4xl border-3 border-accent p-1",

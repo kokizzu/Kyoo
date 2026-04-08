@@ -27,6 +27,9 @@ export const Input = ({
 			<TextInput
 				ref={ref}
 				textAlignVertical="center"
+				verticalAlign="middle"
+				// @ts-expect-error not yet in typescript i think
+				includeFontPadding={false}
 				className={cn(
 					"min-h-6 flex-1 font-sans text-base text-slate-600 outline-0 dark:text-slate-400",
 					className,

@@ -130,12 +130,12 @@ export const SearchBar = ({
 	return (
 		<Animated.View
 			className={cn(
-				"mr-2 flex-1 flex-row items-center overflow-hidden p-0 pl-4",
-				"rounded-full bg-slate-100 dark:bg-slate-800",
+				"mr-2 flex-row items-center overflow-hidden rounded-full p-0 pl-4",
+				expanded ? "bg-slate-100 dark:bg-slate-800" : "bg-transparent",
 				containerClassName,
 			)}
 			style={[
-				expanded ? { flex: 1 } : { backgroundColor: "transparent" },
+				expanded ? { flex: 1 } : { flex: Platform.OS === "web" ? 1 : 0 },
 				{
 					transitionProperty: "backgroundColor",
 					transitionDuration: "300ms",
@@ -163,6 +163,9 @@ export const SearchBar = ({
 					!expanded && "w-0 grow-0",
 					className,
 				)}
+				verticalAlign="middle"
+				// @ts-expect-error not yet in typescript i think
+				includeFontPadding={false}
 				placeholderTextColorClassName="accent-slate-400 dark:text-slate-600"
 				{...props}
 			/>
