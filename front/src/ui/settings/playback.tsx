@@ -24,7 +24,7 @@ export const languageCodes = Object.keys(langmap)
 
 export const PlaybackSettings = () => {
 	const { t } = useTranslation();
-	const [playMode, setDefaultPlayMode] = useLocalSetting("playmode", "direct");
+	const [playMode, setDefaultPlayMode] = useLocalSetting("playMode", "direct");
 	const [audio, setAudio] = useSetting("audioLanguage")!;
 	const [subtitle, setSubtitle] = useSetting("subtitleLanguage")!;
 	const getLanguageName = useLanguageName();
@@ -40,8 +40,8 @@ export const PlaybackSettings = () => {
 					label={t("settings.playback.playmode.label")}
 					value={playMode}
 					onValueChange={(value) => setDefaultPlayMode(value)}
-					values={["direct", "auto"]}
-					getLabel={(key) => t(`player.${key}` as any)}
+					values={["direct", "hls"]}
+					getLabel={(key) => t(key === "hls" ? "player.auto" : "player.direct")}
 				/>
 			</Preference>
 			<Preference
