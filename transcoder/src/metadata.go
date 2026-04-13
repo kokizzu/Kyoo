@@ -171,9 +171,9 @@ func (s *MetadataService) GetMetadata(ctx context.Context, path string, sha stri
 		if err != nil {
 			return nil, err
 		}
-		tx.Exec(bgCtx, `update gocoder.videos set keyframes = null where sha = $1`, sha)
-		tx.Exec(bgCtx, `update gocoder.audios set keyframes = null where sha = $1`, sha)
-		tx.Exec(bgCtx, `update gocoder.info set ver_keyframes = 0 where sha = $1`, sha)
+		tx.Exec(bgCtx, `update gocoder.videos set keyframes = null where id = $1`, ret.Id)
+		tx.Exec(bgCtx, `update gocoder.audios set keyframes = null where id = $1`, ret.Id)
+		tx.Exec(bgCtx, `update gocoder.info set ver_keyframes = 0 where id = $1`, ret.Id)
 		err = tx.Commit(bgCtx)
 		if err != nil {
 			fmt.Printf("error deleting old keyframes from database: %v", err)
@@ -187,7 +187,7 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 	rows, _ := s.Database.Query(
 		ctx,
 		`select
-			i.sha, i.path, i.extension, i.mime_codec, i.size, i.duration, i.container, i.fonts,
+			i.id, i.sha, i.path, i.extension, i.mime_codec, i.size, i.duration, i.container, i.fonts,
 			jsonb_build_object(
 				'info', i.ver_info,
 				'extract', i.ver_extract,
@@ -209,8 +209,8 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 
 	rows, _ = s.Database.Query(
 		ctx,
-		`select * from gocoder.videos as v where v.sha=$1`,
-		sha,
+		`select * from gocoder.videos as v where v.id=$1`,
+		ret.Id,
 	)
 	ret.Videos, err = pgx.CollectRows(rows, pgx.RowToStructByName[Video])
 	if err != nil {
@@ -219,8 +219,8 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 
 	rows, _ = s.Database.Query(
 		ctx,
-		`select * from gocoder.audios as a where a.sha=$1`,
-		sha,
+		`select * from gocoder.audios as a where a.id=$1`,
+		ret.Id,
 	)
 	ret.Audios, err = pgx.CollectRows(rows, pgx.RowToStructByName[Audio])
 	if err != nil {
@@ -229,8 +229,8 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 
 	rows, _ = s.Database.Query(
 		ctx,
-		`select * from gocoder.subtitles as s where s.sha=$1`,
-		sha,
+		`select * from gocoder.subtitles as s where s.id=$1`,
+		ret.Id,
 	)
 	ret.Subtitles, err = pgx.CollectRows(rows, pgx.RowToStructByName[Subtitle])
 	if err != nil {
@@ -254,8 +254,8 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 
 	rows, _ = s.Database.Query(
 		ctx,
-		`select * from gocoder.chapters as c where c.sha=$1`,
-		sha,
+		`select * from gocoder.chapters as c where c.id=$1`,
+		ret.Id,
 	)
 	ret.Chapters, err = pgx.CollectRows(rows, pgx.RowToStructByName[Chapter])
 	if err != nil {
@@ -283,24 +283,28 @@ func (s *MetadataService) storeFreshMetadata(ctx context.Context, path string, s
 	// it needs to be a delete instead of a on conflict do update because we want to trigger delete casquade for
 	// videos/audios & co.
 	tx.Exec(ctx, `delete from gocoder.info where path = $1`, path)
-	tx.Exec(ctx,
+	err = tx.QueryRow(ctx,
 		`
 		insert into gocoder.info(sha, path, extension, mime_codec, size, duration, container,
 		fonts, ver_info, ver_extract, ver_thumbs, ver_keyframes)
 		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		returning id
 		`,
 		// on conflict do not update versions of extract/thumbs/keyframes
 		ret.Sha, ret.Path, ret.Extension, ret.MimeCodec, ret.Size, ret.Duration, ret.Container,
 		ret.Fonts, ret.Versions.Info, ret.Versions.Extract, ret.Versions.Thumbs, ret.Versions.Keyframes,
-	)
+	).Scan(&ret.Id)
+	if err != nil {
+		return set(ret, fmt.Errorf("failed to insert info: %w", err))
+	}
 	for _, v := range ret.Videos {
 		tx.Exec(
 			ctx,
 			`
-			insert into gocoder.videos(sha, idx, title, language, codec, mime_codec, width, height, is_default, bitrate)
+			insert into gocoder.videos(id, idx, title, language, codec, mime_codec, width, height, is_default, bitrate)
 			values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-			on conflict (sha, idx) do update set
-				sha = excluded.sha,
+			on conflict (id, idx) do update set
+				id = excluded.id,
 				idx = excluded.idx,
 				title = excluded.title,
 				language = excluded.language,
@@ -311,17 +315,17 @@ func (s *MetadataService) storeFreshMetadata(ctx context.Context, path string, s
 				is_default = excluded.is_default,
 				bitrate = excluded.bitrate
 			`,
-			ret.Sha, v.Index, v.Title, v.Language, v.Codec, v.MimeCodec, v.Width, v.Height, v.IsDefault, v.Bitrate,
+			ret.Id, v.Index, v.Title, v.Language, v.Codec, v.MimeCodec, v.Width, v.Height, v.IsDefault, v.Bitrate,
 		)
 	}
 	for _, a := range ret.Audios {
 		tx.Exec(
 			ctx,
 			`
-			insert into gocoder.audios(sha, idx, title, language, codec, mime_codec, channels, is_default, bitrate)
+			insert into gocoder.audios(id, idx, title, language, codec, mime_codec, channels, is_default, bitrate)
 			values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			on conflict (sha, idx) do update set
-				sha = excluded.sha,
+			on conflict (id, idx) do update set
+				id = excluded.id,
 				idx = excluded.idx,
 				title = excluded.title,
 				language = excluded.language,
@@ -331,17 +335,17 @@ func (s *MetadataService) storeFreshMetadata(ctx context.Context, path string, s
 				is_default = excluded.is_default,
 				bitrate = excluded.bitrate
 			`,
-			ret.Sha, a.Index, a.Title, a.Language, a.Codec, a.MimeCodec, a.Channels, a.IsDefault, a.Bitrate,
+			ret.Id, a.Index, a.Title, a.Language, a.Codec, a.MimeCodec, a.Channels, a.IsDefault, a.Bitrate,
 		)
 	}
 	for _, s := range ret.Subtitles {
 		tx.Exec(
 			ctx,
 			`
-			insert into gocoder.subtitles(sha, idx, title, language, codec, extension, is_default, is_forced, is_hearing_impaired)
+			insert into gocoder.subtitles(id, idx, title, language, codec, extension, is_default, is_forced, is_hearing_impaired)
 			values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			on conflict (sha, idx) do update set
-				sha = excluded.sha,
+			on conflict (id, idx) do update set
+				id = excluded.id,
 				idx = excluded.idx,
 				title = excluded.title,
 				language = excluded.language,
@@ -351,23 +355,23 @@ func (s *MetadataService) storeFreshMetadata(ctx context.Context, path string, s
 				is_forced = excluded.is_forced,
 				is_hearing_impaired = excluded.is_hearing_impaired
 			`,
-			ret.Sha, s.Index, s.Title, s.Language, s.Codec, s.Extension, s.IsDefault, s.IsForced, s.IsHearingImpaired,
+			ret.Id, s.Index, s.Title, s.Language, s.Codec, s.Extension, s.IsDefault, s.IsForced, s.IsHearingImpaired,
 		)
 	}
 	for _, c := range ret.Chapters {
 		tx.Exec(
 			ctx,
 			`
-			insert into gocoder.chapters(sha, start_time, end_time, name, type)
+			insert into gocoder.chapters(id, start_time, end_time, name, type)
 			values ($1, $2, $3, $4, $5)
-			on conflict (sha, start_time) do update set
-				sha = excluded.sha,
+			on conflict (id, start_time) do update set
+				id = excluded.id,
 				start_time = excluded.start_time,
 				end_time = excluded.end_time,
 				name = excluded.name,
 				type = excluded.type
 			`,
-			ret.Sha, c.StartTime, c.EndTime, c.Name, c.Type,
+			ret.Id, c.StartTime, c.EndTime, c.Name, c.Type,
 		)
 	}
 	err = tx.Commit(ctx)

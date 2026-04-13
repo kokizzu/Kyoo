@@ -27,6 +27,8 @@ type Versions struct {
 }
 
 type MediaInfo struct {
+	// Auto-increment id used as foreign key for related tables.
+	Id int32 `json:"id" db:"id"`
 	// The sha1 of the video file.
 	Sha string `json:"sha" db:"sha"`
 	/// The internal path of the video file.
@@ -60,7 +62,7 @@ type MediaInfo struct {
 }
 
 type Video struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The index of this track on the media.
 	Index uint32 `json:"index" db:"idx"`
@@ -86,7 +88,7 @@ type Video struct {
 }
 
 type Audio struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The index of this track on the media.
 	Index uint32 `json:"index" db:"idx"`
@@ -110,7 +112,7 @@ type Audio struct {
 }
 
 type Subtitle struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The index of this track on the media.
 	Index *uint32 `json:"index" db:"idx"`
@@ -137,7 +139,7 @@ type Subtitle struct {
 }
 
 type Chapter struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The start time of the chapter (in second from the start of the episode).
 	StartTime float32 `json:"startTime" db:"start_time"`

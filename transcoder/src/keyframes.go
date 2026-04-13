@@ -160,12 +160,12 @@ func (s *MetadataService) GetKeyframes(info *MediaInfo, isVideo bool, idx uint32
 		tx, _ := s.Database.Begin(ctx)
 		tx.Exec(
 			ctx,
-			fmt.Sprintf(`update %s set keyframes = $3 where sha = $1 and idx = $2`, table),
-			info.Sha,
+			fmt.Sprintf(`update %s set keyframes = $3 where id = $1 and idx = $2`, table),
+			info.Id,
 			idx,
 			kf.Keyframes,
 		)
-		tx.Exec(ctx, `update gocoder.info set ver_keyframes = $2 where sha = $1`, info.Sha, KeyframeVersion)
+		tx.Exec(ctx, `update gocoder.info set ver_keyframes = $2 where id = $1`, info.Id, KeyframeVersion)
 		err = tx.Commit(ctx)
 		if err != nil {
 			log.Printf("Couldn't store keyframes on database: %v", err)
