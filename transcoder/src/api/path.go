@@ -1,11 +1,8 @@
 package api
 
 import (
-	"crypto/sha1"
 	"encoding/base64"
-	"encoding/hex"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -38,15 +35,7 @@ func getPath(c *echo.Context) (string, string, error) {
 }
 
 func getHash(path string) (string, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return "", err
-	}
-	h := sha1.New()
-	h.Write([]byte(path))
-	h.Write([]byte(info.ModTime().String()))
-	sha := hex.EncodeToString(h.Sum(nil))
-	return sha, nil
+	return src.ComputeSha(path)
 }
 
 func sanitizePath(path string) error {

@@ -3,9 +3,12 @@ package src
 import (
 	"cmp"
 	"context"
+	"crypto/sha1"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"mime"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -347,4 +350,17 @@ func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
 		}
 	}
 	return &ret, nil
+}
+
+// ComputeSha computes a SHA1 hash of the file path and its modification time.
+// This is used as a cache key to detect when a file has changed.
+func ComputeSha(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	h := sha1.New()
+	h.Write([]byte(path))
+	h.Write([]byte(info.ModTime().String()))
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

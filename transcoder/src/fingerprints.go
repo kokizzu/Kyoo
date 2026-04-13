@@ -63,7 +63,11 @@ func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInf
 		return set(nil, fmt.Errorf("failed to compute start fingerprint: %w", err))
 	}
 
-	endFingerprint, err := computeChromaprint(info.Path, info.Duration-5*60, -1)
+	endFingerprint, err := computeChromaprint(
+		info.Path,
+		max(info.Duration-5*60, 0),
+		-1,
+	)
 	if err != nil {
 		return set(nil, fmt.Errorf("failed to compute end fingerprint: %w", err))
 	}

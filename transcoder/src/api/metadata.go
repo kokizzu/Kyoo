@@ -80,7 +80,7 @@ func (h *mhandler) GetInfo(c *echo.Context) error {
 
 type PrepareRequest struct {
 	// File path of the previous/next episodes (for audio fingerprinting).
-	NearEpisodes *string `json:"nearEpisodes"`
+	NearEpisodes []string `json:"nearEpisodes"`
 }
 
 // @Summary      Prepare metadata
