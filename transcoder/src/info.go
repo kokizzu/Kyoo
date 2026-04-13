@@ -20,10 +20,11 @@ import (
 const InfoVersion = 4
 
 type Versions struct {
-	Info      int32 `json:"info" db:"ver_info"`
-	Extract   int32 `json:"extract" db:"ver_extract"`
-	Thumbs    int32 `json:"thumbs" db:"ver_thumbs"`
-	Keyframes int32 `json:"keyframes" db:"ver_keyframes"`
+	Info        int32 `json:"info" db:"ver_info"`
+	Extract     int32 `json:"extract" db:"ver_extract"`
+	Thumbs      int32 `json:"thumbs" db:"ver_thumbs"`
+	Keyframes   int32 `json:"keyframes" db:"ver_keyframes"`
+	Fingerprint int32 `json:"fingerprint" db:"ver_fingerprint"`
 }
 
 type MediaInfo struct {
@@ -149,6 +150,10 @@ type Chapter struct {
 	Name string `json:"name" db:"name"`
 	/// The type value is used to mark special chapters (openning/credits...)
 	Type ChapterType `json:"type" db:"type"`
+	/// Reference to the chapterprint used for fingerprint matching.
+	FingerprintId *int32 `json:"-" db:"fingerprint_id"`
+	/// Accuracy of the fingerprint match (0-100).
+	MatchAccuracy *int32 `json:"matchAccuracy,omitempty" db:"match_accuracy"`
 }
 
 type ChapterType string
@@ -255,10 +260,11 @@ func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
 		Duration:  mi.Format.DurationSeconds,
 		Container: OrNull(mi.Format.FormatName),
 		Versions: Versions{
-			Info:      InfoVersion,
-			Extract:   0,
-			Thumbs:    0,
-			Keyframes: 0,
+			Info:        InfoVersion,
+			Extract:     0,
+			Thumbs:      0,
+			Keyframes:   0,
+			Fingerprint: 0,
 		},
 		Videos: MapStream(mi.Streams, ffprobe.StreamVideo, func(stream *ffprobe.Stream, i uint32) Video {
 			lang, _ := language.Parse(stream.Tags.Language)

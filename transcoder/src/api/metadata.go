@@ -23,7 +23,7 @@ func RegisterMetadataHandlers(e *echo.Group, metadata *src.MetadataService) {
 	h := mhandler{metadata}
 
 	e.GET("/:path/info", h.GetInfo)
-	e.GET("/:path/prepare", h.Prepare)
+	e.POST("/:path/prepare", h.Prepare)
 	e.GET("/:path/subtitle/:name", h.GetSubtitle)
 	e.GET("/:path/attachment/:name", h.GetAttachment)
 	e.GET("/:path/thumbnails.png", h.GetThumbnails)
@@ -62,10 +62,11 @@ func (h *mhandler) GetInfo(c *echo.Context) error {
 			Container: nil,
 			MimeCodec: nil,
 			Versions: src.Versions{
-				Info:      -1,
-				Extract:   0,
-				Thumbs:    0,
-				Keyframes: 0,
+				Info:        -1,
+				Extract:     0,
+				Thumbs:      0,
+				Keyframes:   0,
+				Fingerprint: 0,
 			},
 			Videos:    make([]src.Video, 0),
 			Audios:    make([]src.Audio, 0),
@@ -77,22 +78,34 @@ func (h *mhandler) GetInfo(c *echo.Context) error {
 	return c.JSON(http.StatusOK, ret)
 }
 
+type PrepareRequest struct {
+	// File path of the previous/next episodes (for audio fingerprinting).
+	NearEpisodes *string `json:"nearEpisodes"`
+}
+
 // @Summary      Prepare metadata
 //
-// @Description  Starts metadata preparation in background (info, extract, thumbs, keyframes).
+// @Description  Starts metadata preparation in background (info, extract, thumbs, keyframes, chapter identification).
 //
 // @Tags         metadata
 // @Param        path  path   string    true  "Base64 of a video's path"  format(base64) example(L3ZpZGVvL2J1YmJsZS5ta3YK)
+// @Param        body  body   PrepareRequest  false  "Adjacent episode paths for chapter detection"
 //
 // @Success      202  "Preparation started"
-// @Router       /:path/prepare [get]
+// @Router       /:path/prepare [post]
 func (h *mhandler) Prepare(c *echo.Context) error {
 	path, sha, err := getPath(c)
 	if err != nil {
 		return err
 	}
 
-	go func(path string, sha string) {
+	var req PrepareRequest
+	err = c.Bind(&req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnprocessableEntity, err.Error())
+	}
+
+	go func() {
 		bgCtx := context.Background()
 
 		info, err := h.metadata.GetMetadata(bgCtx, path, sha)
@@ -113,7 +126,9 @@ func (h *mhandler) Prepare(c *echo.Context) error {
 				fmt.Printf("failed to extract audio keyframes for %s (stream %d): %v\n", path, audio.Index, err)
 			}
 		}
-	}(path, sha)
+
+		h.metadata.IdentifyChapters(bgCtx, info, req.NearEpisodes)
+	}()
 
 	return c.NoContent(http.StatusAccepted)
 }

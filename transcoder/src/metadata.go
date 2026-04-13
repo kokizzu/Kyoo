@@ -180,6 +180,19 @@ func (s *MetadataService) GetMetadata(ctx context.Context, path string, sha stri
 		}
 	}
 
+	if ret.Versions.Fingerprint < FingerprintVersion && ret.Versions.Fingerprint != 0 {
+		tx, err := s.Database.Begin(bgCtx)
+		if err != nil {
+			return nil, err
+		}
+		tx.Exec(bgCtx, `delete from gocoder.fingerprints where id = $1`, ret.Id)
+		tx.Exec(bgCtx, `update gocoder.info set ver_fingerprint = 0 where id = $1`, ret.Id)
+		err = tx.Commit(bgCtx)
+		if err != nil {
+			fmt.Printf("error deleting old fingerprints from database: %v", err)
+		}
+	}
+
 	return ret, nil
 }
 
@@ -192,7 +205,8 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 				'info', i.ver_info,
 				'extract', i.ver_extract,
 				'thumbs', i.ver_thumbs,
-				'keyframes', i.ver_keyframes
+				'keyframes', i.ver_keyframes,
+				'fingerprint', i.ver_fingerprint
 			) as versions
 		from gocoder.info as i
 		where i.sha=$1 limit 1`,
@@ -286,13 +300,14 @@ func (s *MetadataService) storeFreshMetadata(ctx context.Context, path string, s
 	err = tx.QueryRow(ctx,
 		`
 		insert into gocoder.info(sha, path, extension, mime_codec, size, duration, container,
-		fonts, ver_info, ver_extract, ver_thumbs, ver_keyframes)
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		fonts, ver_info, ver_extract, ver_thumbs, ver_keyframes, ver_fingerprint)
+		values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		returning id
 		`,
 		// on conflict do not update versions of extract/thumbs/keyframes
 		ret.Sha, ret.Path, ret.Extension, ret.MimeCodec, ret.Size, ret.Duration, ret.Container,
 		ret.Fonts, ret.Versions.Info, ret.Versions.Extract, ret.Versions.Thumbs, ret.Versions.Keyframes,
+		ret.Versions.Fingerprint,
 	).Scan(&ret.Id)
 	if err != nil {
 		return set(ret, fmt.Errorf("failed to insert info: %w", err))
