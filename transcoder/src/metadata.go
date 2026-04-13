@@ -20,22 +20,24 @@ import (
 )
 
 type MetadataService struct {
-	Database     *pgxpool.Pool
-	lock         RunLock[string, *MediaInfo]
-	thumbLock    RunLock[string, any]
-	extractLock  RunLock[string, any]
-	keyframeLock RunLock[KeyframeKey, *Keyframe]
-	storage      storage.StorageBackend
+	Database        *pgxpool.Pool
+	lock            RunLock[string, *MediaInfo]
+	thumbLock       RunLock[string, any]
+	extractLock     RunLock[string, any]
+	keyframeLock    RunLock[KeyframeKey, *Keyframe]
+	fingerprintLock RunLock[string, *Fingerprint]
+	storage         storage.StorageBackend
 }
 
 func NewMetadataService() (*MetadataService, error) {
 	ctx := context.TODO()
 
 	s := &MetadataService{
-		lock:         NewRunLock[string, *MediaInfo](),
-		thumbLock:    NewRunLock[string, any](),
-		extractLock:  NewRunLock[string, any](),
-		keyframeLock: NewRunLock[KeyframeKey, *Keyframe](),
+		lock:            NewRunLock[string, *MediaInfo](),
+		thumbLock:       NewRunLock[string, any](),
+		extractLock:     NewRunLock[string, any](),
+		keyframeLock:    NewRunLock[KeyframeKey, *Keyframe](),
+		fingerprintLock: NewRunLock[string, *Fingerprint](),
 	}
 
 	db, err := s.setupDb()
