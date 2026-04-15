@@ -6,10 +6,10 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/zoriya/kyoo/transcoder/src/exec"
 	"github.com/zoriya/kyoo/transcoder/src/storage"
 	"github.com/zoriya/kyoo/transcoder/src/utils"
 )

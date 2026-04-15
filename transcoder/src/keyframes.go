@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/zoriya/kyoo/transcoder/src/exec"
 	"github.com/zoriya/kyoo/transcoder/src/utils"
 )
 
@@ -201,6 +201,8 @@ func getVideoKeyframes(path string, video_idx uint32, kf *Keyframe) error {
 	if err != nil {
 		return err
 	}
+	// we don't care about the result but await it for tracess.
+	go cmd.Wait()
 
 	scanner := bufio.NewScanner(stdout)
 
@@ -322,6 +324,8 @@ func getAudioKeyframes(info *MediaInfo, audio_idx uint32, kf *Keyframe) error {
 	if err != nil {
 		return err
 	}
+	// we don't care about the result but await it for tracess.
+	go cmd.Wait()
 
 	scanner := bufio.NewScanner(stdout)
 	var duration float64

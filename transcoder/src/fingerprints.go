@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"os/exec"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/zoriya/kyoo/transcoder/src/exec"
 	"github.com/zoriya/kyoo/transcoder/src/utils"
 )
 

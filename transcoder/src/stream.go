@@ -7,12 +7,13 @@ import (
 	"log"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zoriya/kyoo/transcoder/src/exec"
 )
 
 type Flags int32
