@@ -30,6 +30,10 @@ const (
 	// Number of samples per correlation block (~2 seconds at 7.8125 samples/s).
 	// Segments are evaluated in blocks of this size to find contiguous matching runs.
 	CorrBlockSize = 16
+
+	// Number of samples used in boundary refinement windows (~0.5 seconds).
+	// A smaller window gives sub-block precision while keeping noise low.
+	RefineWindowSize = 4
 )
 
 type Overlap struct {
@@ -193,6 +197,7 @@ func findMatchingRuns(fp1, fp2 []uint32, start1, start2 int) []Overlap {
 		inRun = false
 		start := runStart * CorrBlockSize
 		end := b * CorrBlockSize
+		start, end = refineRunBounds(fp1, fp2, start, end)
 		if end-start >= minSamples {
 			corr := segmentCorrelation(fp1[start:end], fp2[start:end])
 			overlaps = append(overlaps, Overlap{
@@ -205,6 +210,40 @@ func findMatchingRuns(fp1, fp2 []uint32, start1, start2 int) []Overlap {
 	}
 
 	return overlaps
+}
+
+// refineRunBounds improves coarse block-aligned [start, end) boundaries
+// using short sample windows around each edge. It only scans ±1 block around
+// each edge, so the fast block-based pass remains the dominant cost.
+func refineRunBounds(fp1, fp2 []uint32, start, end int) (int, int) {
+	length := min(len(fp1), len(fp2))
+	window := RefineWindowSize
+
+	startSearchLo := max(0, start-CorrBlockSize)
+	startSearchHi := min(start+CorrBlockSize, length-window)
+	refinedStart := startSearchHi
+	for i := startSearchLo; i <= startSearchHi; i++ {
+		if segmentCorrelation(fp1[i:i+window], fp2[i:i+window]) >= MatchThreshold {
+			refinedStart = i
+			break
+		}
+	}
+
+	endSearchLo := max(0, end-CorrBlockSize-window)
+	endSearchHi := min(end+CorrBlockSize-window, length-window)
+	refinedEnd := endSearchLo
+	for i := endSearchHi; i >= endSearchLo; i-- {
+		if segmentCorrelation(fp1[i:i+window], fp2[i:i+window]) >= MatchThreshold {
+			refinedEnd = i + window
+			break
+		}
+	}
+
+	if refinedEnd <= refinedStart {
+		return start, end
+	}
+
+	return refinedStart, refinedEnd
 }
 
 // FpFindOverlap finds all similar segments (like shared intro music) between
