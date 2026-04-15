@@ -16,10 +16,12 @@ export const TouchControls = ({
 	player,
 	children,
 	forceShow = false,
+	onVisibilityChange,
 	...props
 }: {
 	player: VideoPlayer;
 	forceShow?: boolean;
+	onVisibilityChange?: (isVisible: boolean) => void;
 } & ViewProps) => {
 	const isTouch = useIsTouch();
 
@@ -31,6 +33,11 @@ export const TouchControls = ({
 	const [_show, setShow] = useState(false);
 	const hideTimeout = useRef<NodeJS.Timeout | number | null>(null);
 	const shouldShow = forceShow || _show || !playing;
+
+	useEffect(() => {
+		onVisibilityChange?.(shouldShow);
+	}, [onVisibilityChange, shouldShow]);
+
 	const show = useCallback((val: boolean = true) => {
 		setShow(val);
 		if (hideTimeout.current) clearTimeout(hideTimeout.current);

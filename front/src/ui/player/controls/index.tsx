@@ -7,6 +7,7 @@ import { useIsTouch } from "~/primitives";
 import { Back } from "./back";
 import { BottomControls } from "./bottom-controls";
 import { MiddleControls } from "./middle-controls";
+import { SkipChapterButton } from "./skip-chapter";
 import { TouchControls } from "./touch";
 
 export const Controls = ({
@@ -40,6 +41,7 @@ export const Controls = ({
 
 	const [hover, setHover] = useState(false);
 	const [menuOpened, setMenuOpened] = useState(false);
+	const [controlsVisible, setControlsVisible] = useState(false);
 
 	const hoverControls = {
 		onPointerEnter: (e) => {
@@ -61,6 +63,7 @@ export const Controls = ({
 			<TouchControls
 				player={player}
 				forceShow={hover || menuOpened || forceShow}
+				onVisibilityChange={setControlsVisible}
 				className="absolute inset-0"
 			>
 				<Back
@@ -91,6 +94,11 @@ export const Controls = ({
 					{...hoverControls}
 				/>
 			</TouchControls>
+			<SkipChapterButton
+				player={player}
+				chapters={chapters}
+				isVisible={hover && controlsVisible}
+			/>
 		</View>
 	);
 };

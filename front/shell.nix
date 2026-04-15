@@ -3,7 +3,7 @@ pkgs.mkShell {
   packages = with pkgs; [
     bun
     biome
-    nodePackages.eas-cli
+    eas-cli
   ];
 }
 
