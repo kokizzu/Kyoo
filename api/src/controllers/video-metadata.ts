@@ -1,5 +1,5 @@
 import { getLogger } from "@logtape/logtape";
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Elysia, t } from "elysia";
 import slugify from "slugify";
 import { auth } from "~/auth";

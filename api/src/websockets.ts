@@ -1,3 +1,4 @@
+import { getLogger } from "@logtape/logtape";
 import type { TObject, TString } from "@sinclair/typebox";
 import { eq } from "drizzle-orm";
 import Elysia, { type TSchema, t } from "elysia";
@@ -7,6 +8,8 @@ import { getOrCreateProfile } from "./controllers/profiles/profile";
 import { prepareVideo } from "./controllers/video-metadata";
 import { getVideos } from "./controllers/videos";
 import { videos } from "./db/schema";
+
+const logger = getLogger();
 
 const actionMap = {
 	ping: handler({
@@ -60,7 +63,13 @@ const actionMap = {
 					userId: ws.data.jwt.sub,
 				});
 				const next = vid?.next?.video;
-				if (next) await prepareVideo(next, ws.data.headers.authorization!);
+				if (!next) {
+					logger.info("No next video to prepare for ${slug}", {
+						slug: vid.path,
+					});
+					return
+				}
+				await prepareVideo(next, ws.data.headers.authorization!);
 			}
 		},
 	}),

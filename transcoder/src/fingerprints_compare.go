@@ -11,7 +11,6 @@ import (
 
 const (
 	MinOverlapDuration = 15.0
-	MinSilenceDuration = 2.0
 
 	// Correlation threshold (0.0-1.0) above which a match is considered valid.
 	// Uses the AcoustID-style formula: 1.0 - 2.0 * biterror / (32 * length),
@@ -83,7 +82,7 @@ func matchStrip(v uint32) uint16 {
 //     (position_in_fp1 - position_in_fp2).
 //  3. The offset with the most votes wins.
 //  4. A diversity check rejects matches caused by repetitive/silent audio.
-func findBestOffset(fp1, fp2 []uint32) *int {
+func findBestOffset(ctx context.Context, fp1, fp2 []uint32) *int {
 	offsets1 := make(map[uint16]int)
 	offsets2 := make(map[uint16]int)
 
@@ -128,9 +127,18 @@ func findBestOffset(fp1, fp2 []uint32) *int {
 	// to the number of unique values. This filters out repetitive audio
 	// (silence, static noise) that would produce spurious matches.
 	// (at least 2% of values must match with said offset)
-	if topCount < max(len(offsets1), len(offsets2))*2/100 {
+	percent := float64(topCount) / float64(max(len(offsets1), len(offsets2)))
+	if percent < 2./100 {
+		slog.WarnContext(
+			ctx,
+			"Diversity check failed, ignoring potential offset",
+			"offset", topOffset,
+			"percent", percent,
+			"vote_count", topCount,
+		)
 		return nil
 	}
+	slog.DebugContext(ctx, "Identified offset", "offset", topOffset, "percent", percent)
 	return new(topOffset)
 }
 
@@ -258,9 +266,8 @@ func refineRunBounds(fp1, fp2 []uint32, start, end int) (int, int) {
 //  4. Find contiguous runs of high-correlation blocks that are at least
 //     MinOverlapDuration long.
 func FpFindOverlap(ctx context.Context, fp1 []uint32, fp2 []uint32) ([]Overlap, error) {
-	offset := findBestOffset(fp1, fp2)
+	offset := findBestOffset(ctx, fp1, fp2)
 	if offset == nil {
-		slog.InfoContext(ctx, "no good offset found")
 		return nil, nil
 	}
 
@@ -273,8 +280,8 @@ func FpFindOverlap(ctx context.Context, fp1 []uint32, fp2 []uint32) ([]Overlap, 
 	return runs, nil
 }
 
-func FpFindContain(haystack []uint32, needle []uint32) (*Match, error) {
-	offset := findBestOffset(haystack, needle)
+func FpFindContain(ctx context.Context, haystack []uint32, needle []uint32) (*Match, error) {
+	offset := findBestOffset(ctx, haystack, needle)
 	if offset == nil || *offset < 0 || *offset+len(needle) < len(haystack) {
 		return nil, nil
 	}
