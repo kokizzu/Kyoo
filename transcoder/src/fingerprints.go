@@ -24,9 +24,9 @@ type Fingerprint struct {
 }
 
 func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInfo) (*Fingerprint, error) {
-	getRunning, set := s.fingerprintLock.Start(info.Path)
-	if getRunning != nil {
-		return getRunning()
+	get_running, set := s.fingerprintLock.Start(info.Sha)
+	if get_running != nil {
+		return get_running()
 	}
 
 	var startData string
@@ -67,7 +67,7 @@ func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInf
 	endFingerprint, err := computeChromaprint(
 		ctx,
 		info.Path,
-		max(info.Duration-5*60, 0),
+		max(info.Duration-FpEndDuration, 0),
 		-1,
 	)
 	if err != nil {

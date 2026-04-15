@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useEvent, type VideoPlayer } from "react-native-video";
 import type { Chapter } from "~/models";
 import { Button } from "~/primitives";
+import { cn } from "~/utils";
 
 export const SkipChapterButton = ({
 	player,
@@ -32,7 +33,10 @@ export const SkipChapterButton = ({
 		<Button
 			text={t(`player.skip-${chapter.type}`)}
 			onPress={() => player.seekTo(chapter.endTime)}
-			className="pointer-events-box-none absolute top-safe right-safe z-20 border-slate-200 bg-slate-900/70 p-4 px-4 py-2"
+			className={cn(
+				"absolute right-safe bottom-2/10 m-8",
+				"z-20 bg-slate-900/70 px-4 py-2",
+			)}
 		/>
 	);
 };

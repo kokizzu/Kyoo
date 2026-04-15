@@ -1,6 +1,8 @@
 package src
 
 import (
+	"context"
+	"log/slog"
 	"math/bits"
 )
 
@@ -174,12 +176,14 @@ func findMatchingRuns(fp1, fp2 []uint32, start1, start2 int) []Overlap {
 
 	// Handle a run that extends to the last block.
 	nblocks++
-	blockCorr = append(blockCorr, MatchThreshold)
+	blockCorr = append(blockCorr, 0)
 
 	for b := range nblocks {
 		if blockCorr[b] >= MatchThreshold {
+			if !inRun {
+				runStart = b
+			}
 			inRun = true
-			runStart = min(runStart, b)
 			continue
 		}
 		if !inRun {
@@ -214,9 +218,10 @@ func findMatchingRuns(fp1, fp2 []uint32, start1, start2 int) []Overlap {
 //     per block using the AcoustID scoring formula.
 //  4. Find contiguous runs of high-correlation blocks that are at least
 //     MinOverlapDuration long.
-func FpFindOverlap(fp1 []uint32, fp2 []uint32) ([]Overlap, error) {
+func FpFindOverlap(ctx context.Context, fp1 []uint32, fp2 []uint32) ([]Overlap, error) {
 	offset := findBestOffset(fp1, fp2)
 	if offset == nil {
+		slog.InfoContext(ctx, "no good offset found")
 		return nil, nil
 	}
 

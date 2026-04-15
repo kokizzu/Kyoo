@@ -194,8 +194,9 @@ export const videosMetadata = new Elysia({
 	)
 	.get(
 		":id/prepare",
-		async ({ params: { id }, headers: { authorization } }) => {
-			await prepareVideo(id, authorization!);
+		async ({ params: { id }, headers: { authorization }, status }) => {
+			const ret = await prepareVideo(id, authorization!);
+			if (ret) return status(ret.status, ret);
 		},
 		{
 			detail: { description: "Prepare a video for playback" },
@@ -219,7 +220,6 @@ export const videosMetadata = new Elysia({
 	);
 
 export const prepareVideo = async (slug: string, auth: string) => {
-	logger.info("Preparing next video {slug}", { slug });
 	const [vid] = await db
 		.select({ path: videos.path, show: entries.showPk, order: entries.order })
 		.from(videos)
@@ -227,6 +227,13 @@ export const prepareVideo = async (slug: string, auth: string) => {
 		.leftJoin(entries, eq(entries.pk, entryVideoJoin.entryPk))
 		.where(eq(entryVideoJoin.slug, slug))
 		.limit(1);
+
+	if (!vid) {
+		return {
+			status: 404,
+			message: `No video found with slug ${slug}`,
+		} as const;
+	}
 
 	const related = vid.show
 		? await db
@@ -238,6 +245,14 @@ export const prepareVideo = async (slug: string, auth: string) => {
 				.orderBy(entries.order)
 		: [];
 	const idx = related.findIndex((x) => x.order === vid.order);
+	const near = [related[idx - 1], related[idx + 1]]
+		.filter((x) => x)
+		.map((x) => x.path);
+
+	logger.info("Preparing next video {slug} (near episodes: {near})", {
+		slug,
+		near,
+	});
 
 	const path = Buffer.from(vid.path, "utf8").toString("base64url");
 	await fetch(
@@ -252,9 +267,7 @@ export const prepareVideo = async (slug: string, auth: string) => {
 			},
 			method: "POST",
 			body: JSON.stringify({
-				nearEpisodes: [related[idx - 1], related[idx + 1]]
-					.filter((x) => x)
-					.map((x) => x.path),
+				nearEpisodes: near,
 			}),
 		},
 	);

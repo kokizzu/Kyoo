@@ -155,11 +155,11 @@ func (s *MetadataService) matchByOverlap(
 		slog.WarnContext(ctx, "failed to store fingerprint", "path", otherInfo.Path, "err", err)
 	}
 
-	intros, err := FpFindOverlap(fingerprint.Start, otherPrint.Start)
+	intros, err := FpFindOverlap(ctx, fingerprint.Start, otherPrint.Start)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find intro overlaps: %w", err)
 	}
-	credits, err := FpFindOverlap(fingerprint.End, otherPrint.End)
+	credits, err := FpFindOverlap(ctx, fingerprint.End, otherPrint.End)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find credit overlaps: %w", err)
 	}
@@ -178,6 +178,7 @@ func (s *MetadataService) matchByOverlap(
 			continue
 		}
 
+		slog.InfoContext(ctx, "Identified intro", "start", intro.StartFirst, "duration", intro.Duration)
 		candidates = append(candidates, Chapter{
 			Id:            info.Id,
 			StartTime:     float32(intro.StartFirst),
@@ -189,9 +190,8 @@ func (s *MetadataService) matchByOverlap(
 		})
 	}
 
-	endOffset := max(info.Duration-FpEndDuration, 0)
-	for _, ov := range credits {
-		segData, err := ExtractSegment(fingerprint.End, ov.StartFirst, ov.StartFirst+ov.Duration)
+	for _, cred := range credits {
+		segData, err := ExtractSegment(fingerprint.End, cred.StartFirst, cred.StartFirst+cred.Duration)
 		if err != nil {
 			slog.WarnContext(ctx, "failed to extract credits segment", "err", err)
 			continue
@@ -203,14 +203,16 @@ func (s *MetadataService) matchByOverlap(
 			continue
 		}
 
+		endOffset := info.Duration - samplesToSec(len(fingerprint.End))
+		slog.InfoContext(ctx, "Identified credits", "start", endOffset+cred.StartFirst, "duration", cred.Duration, "end_offset", endOffset)
 		candidates = append(candidates, Chapter{
 			Id:            info.Id,
-			StartTime:     float32(endOffset + ov.StartFirst),
-			EndTime:       float32(endOffset + ov.StartFirst + ov.Duration),
+			StartTime:     float32(endOffset + cred.StartFirst),
+			EndTime:       float32(endOffset + cred.StartFirst + cred.Duration),
 			Name:          "",
 			Type:          Credits,
 			FingerprintId: &fpId,
-			MatchAccuracy: new(int32(ov.Accuracy)),
+			MatchAccuracy: new(int32(cred.Accuracy)),
 		})
 	}
 

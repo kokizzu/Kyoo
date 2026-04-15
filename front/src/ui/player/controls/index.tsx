@@ -97,7 +97,7 @@ export const Controls = ({
 			<SkipChapterButton
 				player={player}
 				chapters={chapters}
-				isVisible={hover && controlsVisible}
+				isVisible={controlsVisible}
 			/>
 		</View>
 	);
