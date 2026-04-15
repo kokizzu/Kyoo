@@ -2,6 +2,7 @@ package src
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -126,7 +127,8 @@ func toSegmentStr(segments []float64) string {
 	}), ",")
 }
 
-func (ts *Stream) run(start int32) error {
+func (ts *Stream) run(ctx context.Context, start int32) error {
+	ctx = context.WithoutCancel(ctx)
 	// Start the transcode up to the 100th segment (or less)
 	length, is_done := ts.keyframes.Length()
 	end := min(start+100, length)
@@ -155,7 +157,7 @@ func (ts *Stream) run(start int32) error {
 	ts.heads = append(ts.heads, Head{segment: start, end: end, command: nil})
 	ts.lock.Unlock()
 
-	slog.Info("starting transcode", "encoderId", encoder_id, "path", ts.file.Info.Path, "start", start, "end", end, "length", length)
+	slog.InfoContext(ctx, "starting transcode", "encoderId", encoder_id, "path", ts.file.Info.Path, "start", start, "end", end, "length", length)
 
 	// Include both the start and end delimiter because -ss and -to are not accurate
 	// Having an extra segment allows us to cut precisely the segments we want with the
@@ -271,8 +273,8 @@ func (ts *Stream) run(start int32) error {
 		outpath,
 	)
 
-	cmd := exec.Command("ffmpeg", args...)
-	slog.Info("running ffmpeg", "args", strings.Join(cmd.Args, " "))
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	slog.InfoContext(ctx, "running ffmpeg", "args", strings.Join(cmd.Args, " "))
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -289,7 +291,7 @@ func (ts *Stream) run(start int32) error {
 	ts.heads[encoder_id].command = cmd
 	ts.lock.Unlock()
 
-	go func() {
+	go func(ctx context.Context) {
 		scanner := bufio.NewScanner(stdout)
 		format := filepath.Base(outpath)
 		should_stop := false
@@ -305,11 +307,11 @@ func (ts *Stream) run(start int32) error {
 			}
 			ts.lock.Lock()
 			ts.heads[encoder_id].segment = segment
-			slog.Info("segment got ready", "segment", segment, "encoderId", encoder_id)
+			slog.InfoContext(ctx, "segment got ready", "segment", segment, "encoderId", encoder_id)
 			if ts.isSegmentReady(segment) {
 				// the current segment is already marked at done so another process has already gone up to here.
 				cmd.Process.Signal(os.Interrupt)
-				slog.Info("killing ffmpeg because segment already ready", "segment", segment, "encoderId", encoder_id)
+				slog.InfoContext(ctx, "killing ffmpeg because segment already ready", "segment", segment, "encoderId", encoder_id)
 				should_stop = true
 			} else {
 				ts.segments[segment].encoder = encoder_id
@@ -319,7 +321,7 @@ func (ts *Stream) run(start int32) error {
 					should_stop = true
 				} else if ts.isSegmentReady(segment + 1) {
 					cmd.Process.Signal(os.Interrupt)
-					slog.Info("killing ffmpeg because next segment is ready", "segment", segment, "encoderId", encoder_id)
+					slog.InfoContext(ctx, "killing ffmpeg because next segment is ready", "segment", segment, "encoderId", encoder_id)
 					should_stop = true
 				}
 			}
@@ -332,30 +334,30 @@ func (ts *Stream) run(start int32) error {
 		}
 
 		if err := scanner.Err(); err != nil {
-			slog.Warn("error reading ffmpeg stdout", "err", err)
+			slog.WarnContext(ctx, "error reading ffmpeg stdout", "err", err)
 		}
-	}()
+	}(ctx)
 
-	go func() {
+	go func(ctx context.Context) {
 		err := cmd.Wait()
 		if exiterr, ok := err.(*exec.ExitError); ok && exiterr.ExitCode() == 255 {
-			slog.Info("ffmpeg was killed by us", "encoderId", encoder_id)
+			slog.InfoContext(ctx, "ffmpeg was killed by us", "encoderId", encoder_id)
 		} else if err != nil {
-			slog.Error("ffmpeg occured an error", "encoderId", encoder_id, "err", err, "stderr", stderr.String())
+			slog.ErrorContext(ctx, "ffmpeg occured an error", "encoderId", encoder_id, "err", err, "stderr", stderr.String())
 		} else {
-			slog.Info("ffmpeg finished successfully", "encoderId", encoder_id)
+			slog.InfoContext(ctx, "ffmpeg finished successfully", "encoderId", encoder_id)
 		}
 
 		ts.lock.Lock()
 		defer ts.lock.Unlock()
 		// we can't delete the head directly because it would invalidate the others encoder_id
 		ts.heads[encoder_id] = DeletedHead
-	}()
+	}(ctx)
 
 	return nil
 }
 
-func (ts *Stream) GetIndex(client string) (string, error) {
+func (ts *Stream) GetIndex(_ context.Context, client string) (string, error) {
 	// playlist type is event since we can append to the list if Keyframe.IsDone is false.
 	// start time offset makes the stream start at 0s instead of ~3segments from the end (requires version 6 of hls)
 	index := `#EXTM3U
@@ -382,7 +384,8 @@ func (ts *Stream) GetIndex(client string) (string, error) {
 	return index, nil
 }
 
-func (ts *Stream) GetSegment(segment int32) (string, error) {
+func (ts *Stream) GetSegment(ctx context.Context, segment int32) (string, error) {
+	ctx = context.WithoutCancel(ctx)
 	ts.lock.RLock()
 	ready := ts.isSegmentReady(segment)
 	// we want to calculate distance in the same lock else it can be funky
@@ -403,13 +406,13 @@ func (ts *Stream) GetSegment(segment int32) (string, error) {
 	if !ready {
 		// Only start a new encode if there is too big a distance between the current encoder and the segment.
 		if distance > 60 || !is_scheduled {
-			slog.Info("creating new head", "segment", segment, "distance", distance)
-			err := ts.run(segment)
+			slog.InfoContext(ctx, "creating new head", "segment", segment, "distance", distance)
+			err := ts.run(ctx, segment)
 			if err != nil {
 				return "", err
 			}
 		} else {
-			slog.Info("waiting for segment", "segment", segment, "distance", distance)
+			slog.InfoContext(ctx, "waiting for segment", "segment", segment, "distance", distance)
 		}
 
 		select {
@@ -418,11 +421,12 @@ func (ts *Stream) GetSegment(segment int32) (string, error) {
 			return "", errors.New("could not retrive the selected segment (timeout)")
 		}
 	}
-	ts.prerareNextSegements(segment)
+	ts.prerareNextSegements(ctx, segment)
 	return fmt.Sprintf(ts.handle.getOutPath(ts.segments[segment].encoder), segment), nil
 }
 
-func (ts *Stream) prerareNextSegements(segment int32) {
+func (ts *Stream) prerareNextSegements(ctx context.Context, segment int32) {
+	ctx = context.WithoutCancel(ctx)
 	// Audio is way cheaper to create than video so we don't need to run them in advance
 	// Running it in advance might actually slow down the video encode since less compute
 	// power can be used so we simply disable that.
@@ -440,8 +444,8 @@ func (ts *Stream) prerareNextSegements(segment int32) {
 		if ts.getMinEncoderDistance(i) < 60+(5*float64(i-segment)) {
 			continue
 		}
-		slog.Info("creating new head for future segment", "segment", i)
-		go ts.run(i)
+		slog.InfoContext(ctx, "creating new head for future segment", "segment", i)
+		go ts.run(ctx, i)
 		return
 	}
 }

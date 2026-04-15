@@ -1,6 +1,7 @@
 package src
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 )
@@ -11,10 +12,11 @@ type VideoStream struct {
 	quality VideoQuality
 }
 
-func (t *Transcoder) NewVideoStream(file *FileStream, idx uint32, quality VideoQuality) (*VideoStream, error) {
-	slog.Info("creating a new video stream", "path", file.Info.Path, "idx", idx, "quality", quality)
+func (t *Transcoder) NewVideoStream(ctx context.Context, file *FileStream, idx uint32, quality VideoQuality) (*VideoStream, error) {
+	ctx = context.WithoutCancel(ctx)
+	slog.InfoContext(ctx, "creating a new video stream", "path", file.Info.Path, "idx", idx, "quality", quality)
 
-	keyframes, err := t.metadataService.GetKeyframes(file.Info, true, idx)
+	keyframes, err := t.metadataService.GetKeyframes(ctx, file.Info, true, idx)
 	if err != nil {
 		return nil, err
 	}

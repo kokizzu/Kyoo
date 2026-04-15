@@ -1,19 +1,20 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 )
 
-func PrintExecTime(message string, args ...any) func() {
+func PrintExecTime(ctx context.Context, message string, args ...any) func() {
 	msg := fmt.Sprintf(message, args...)
 	start := time.Now()
-	slog.Info(fmt.Sprintf("running %s", msg))
+	slog.InfoContext(ctx, "running", "message", msg)
 
 	return func() {
-		slog.Info(fmt.Sprintf("finished %s in %d", msg, time.Since(start)))
+		slog.InfoContext(ctx, "finished", "message", msg, "duration", time.Since(start))
 	}
 }
 

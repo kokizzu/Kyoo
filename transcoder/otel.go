@@ -56,7 +56,7 @@ func setupOtel(ctx context.Context) (func(context.Context) error, error) {
 		return nil, err
 	}
 
-	slog.Info("Configuring OTEL")
+	slog.InfoContext(ctx, "Configuring OTEL")
 
 	otel.SetTextMapPropagator(
 		propagation.NewCompositeTextMapPropagator(
@@ -70,42 +70,42 @@ func setupOtel(ctx context.Context) (func(context.Context) error, error) {
 	var te tracesdk.SpanExporter
 	switch {
 	case strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")) == "":
-		slog.Info("Using OLTP type", "type", "noop")
+		slog.InfoContext(ctx, "Using OLTP type", "type", "noop")
 		le = nil
 		me = nil
 		te = nil
 	case strings.ToLower(strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL"))) == "grpc":
-		slog.Info("Using OLTP type", "type", "grpc")
+		slog.InfoContext(ctx, "Using OLTP type", "type", "grpc")
 		le, err = otlploggrpc.New(ctx)
 		if err != nil {
-			slog.Error("Failed setting up OLTP", "err", err)
+			slog.ErrorContext(ctx, "Failed setting up OLTP", "err", err)
 			return nil, err
 		}
 		me, err = otlpmetricgrpc.New(ctx)
 		if err != nil {
-			slog.Error("Failed setting up OLTP", "err", err)
+			slog.ErrorContext(ctx, "Failed setting up OLTP", "err", err)
 			return nil, err
 		}
 		te, err = otlptracegrpc.New(ctx)
 		if err != nil {
-			slog.Error("Failed setting up OLTP", "err", err)
+			slog.ErrorContext(ctx, "Failed setting up OLTP", "err", err)
 			return nil, err
 		}
 	default:
-		slog.Info("Using OLTP type", "type", "http")
+		slog.InfoContext(ctx, "Using OLTP type", "type", "http")
 		le, err = otlploghttp.New(ctx)
 		if err != nil {
-			slog.Error("Failed setting up OLTP", "err", err)
+			slog.ErrorContext(ctx, "Failed setting up OLTP", "err", err)
 			return nil, err
 		}
 		me, err = otlpmetrichttp.New(ctx)
 		if err != nil {
-			slog.Error("Failed setting up OLTP", "err", err)
+			slog.ErrorContext(ctx, "Failed setting up OLTP", "err", err)
 			return nil, err
 		}
 		te, err = otlptracehttp.New(ctx)
 		if err != nil {
-			slog.Error("Failed setting up OLTP", "err", err)
+			slog.ErrorContext(ctx, "Failed setting up OLTP", "err", err)
 			return nil, err
 		}
 	}
@@ -171,7 +171,7 @@ func setupOtel(ctx context.Context) (func(context.Context) error, error) {
 	}
 
 	return func(ctx context.Context) error {
-		slog.Info("Shutting down OTEL")
+		slog.InfoContext(ctx, "Shutting down OTEL")
 
 		// run shutdowns and collect errors
 		var errs []error

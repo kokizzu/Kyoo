@@ -107,24 +107,24 @@ func (h *mhandler) Prepare(c *echo.Context) error {
 	}
 
 	go func() {
-		bgCtx := context.Background()
+		bgCtx := context.WithoutCancel(c.Request().Context())
 
 		info, err := h.metadata.GetMetadata(bgCtx, path, sha)
 		if err != nil {
-			slog.Error("failed to prepare metadata", "path", path, "err", err)
+			slog.ErrorContext(bgCtx, "failed to prepare metadata", "path", path, "err", err)
 			return
 		}
 
 		// thumb & subs are already extracted in `GetMetadata`
 
 		for _, video := range info.Videos {
-			if _, err := h.metadata.GetKeyframes(info, true, video.Index); err != nil {
-				slog.Warn("failed to extract video keyframes", "path", path, "stream", video.Index, "err", err)
+			if _, err := h.metadata.GetKeyframes(bgCtx, info, true, video.Index); err != nil {
+				slog.WarnContext(bgCtx, "failed to extract video keyframes", "path", path, "stream", video.Index, "err", err)
 			}
 		}
 		for _, audio := range info.Audios {
-			if _, err := h.metadata.GetKeyframes(info, false, audio.Index); err != nil {
-				slog.Warn("failed to extract audio keyframes", "path", path, "stream", audio.Index, "err", err)
+			if _, err := h.metadata.GetKeyframes(bgCtx, info, false, audio.Index); err != nil {
+				slog.WarnContext(bgCtx, "failed to extract audio keyframes", "path", path, "stream", audio.Index, "err", err)
 			}
 		}
 

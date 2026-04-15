@@ -1,6 +1,7 @@
 package src
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -143,7 +144,7 @@ func GetMimeCodec(stream *ffprobe.Stream) *string {
 		return &ret
 
 	default:
-		slog.Warn("no known mime format", "codec", stream.CodecName)
+		slog.WarnContext(context.WithoutCancel(context.Background()), "no known mime format", "codec", stream.CodecName)
 		return nil
 	}
 }

@@ -40,7 +40,7 @@ func getThumbVttPath(sha string) string {
 }
 
 func (s *MetadataService) GetThumbVtt(ctx context.Context, path string, sha string) (io.ReadCloser, error) {
-	_, err := s.ExtractThumbs(context.Background(), path, sha)
+	_, err := s.ExtractThumbs(context.WithoutCancel(ctx), path, sha)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (s *MetadataService) GetThumbVtt(ctx context.Context, path string, sha stri
 }
 
 func (s *MetadataService) GetThumbSprite(ctx context.Context, path string, sha string) (io.ReadCloser, error) {
-	_, err := s.ExtractThumbs(context.Background(), path, sha)
+	_, err := s.ExtractThumbs(context.WithoutCancel(ctx), path, sha)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (s *MetadataService) ExtractThumbs(ctx context.Context, path string, sha st
 }
 
 func (s *MetadataService) extractThumbnail(ctx context.Context, path string, sha string) (err error) {
-	defer utils.PrintExecTime("extracting thumbnails for %s", path)()
+	defer utils.PrintExecTime(ctx, "extracting thumbnails for %s", path)()
 
 	vttPath := getThumbVttPath(sha)
 	spritePath := getThumbPath(sha)
@@ -95,7 +95,7 @@ func (s *MetadataService) extractThumbnail(ctx context.Context, path string, sha
 
 	gen, err := screengen.NewGenerator(path)
 	if err != nil {
-		slog.Error("error reading video file", "path", path, "err", err)
+		slog.ErrorContext(ctx, "error reading video file", "path", path, "err", err)
 		return err
 	}
 	defer gen.Close()
@@ -120,13 +120,13 @@ func (s *MetadataService) extractThumbnail(ctx context.Context, path string, sha
 	sprite := imaging.New(width*columns, height*rows, color.Black)
 	vtt := "WEBVTT\n\n"
 
-	slog.Info("extracting thumbnails", "count", numcaps, "path", path, "interval", interval)
+	slog.InfoContext(ctx, "extracting thumbnails", "count", numcaps, "path", path, "interval", interval)
 
 	ts := 0
 	for i := 0; i < numcaps; i++ {
 		img, err := gen.ImageWxH(int64(ts*1000), width, height)
 		if err != nil {
-			slog.Error("could not generate screenshot", "err", err)
+			slog.ErrorContext(ctx, "could not generate screenshot", "err", err)
 			return err
 		}
 

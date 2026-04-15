@@ -100,11 +100,11 @@ func (s *MetadataService) setupDb() (*pgxpool.Pool, error) {
 
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		slog.Error("could not connect to database, check your env variables", "err", err)
+		slog.ErrorContext(ctx, "could not connect to database, check your env variables", "err", err)
 		return nil, err
 	}
 
-	slog.Info("migrating database")
+	slog.InfoContext(ctx, "migrating database")
 	dbi := stdlib.OpenDBFromPool(db)
 	defer dbi.Close()
 
@@ -120,7 +120,7 @@ func (s *MetadataService) setupDb() (*pgxpool.Pool, error) {
 		return nil, err
 	}
 	m.Up()
-	slog.Info("migrating finished")
+	slog.InfoContext(ctx, "migrating finished")
 
 	return db, nil
 }
@@ -155,7 +155,7 @@ func (s *MetadataService) GetMetadata(ctx context.Context, path string, sha stri
 		return nil, err
 	}
 
-	bgCtx := context.Background()
+	bgCtx := context.WithoutCancel(ctx)
 
 	if ret.Versions.Thumbs < ThumbsVersion {
 		go s.ExtractThumbs(bgCtx, path, sha)
@@ -179,7 +179,7 @@ func (s *MetadataService) GetMetadata(ctx context.Context, path string, sha stri
 		tx.Exec(bgCtx, `update gocoder.info set ver_keyframes = 0 where id = $1`, ret.Id)
 		err = tx.Commit(bgCtx)
 		if err != nil {
-			slog.Error("error deleting old keyframes from database", "err", err)
+			slog.ErrorContext(bgCtx, "error deleting old keyframes from database", "err", err)
 		}
 	}
 
@@ -192,7 +192,7 @@ func (s *MetadataService) GetMetadata(ctx context.Context, path string, sha stri
 		tx.Exec(bgCtx, `update gocoder.info set ver_fingerprint = 0 where id = $1`, ret.Id)
 		err = tx.Commit(bgCtx)
 		if err != nil {
-			slog.Error("error deleting old fingerprints from database", "err", err)
+			slog.ErrorContext(bgCtx, "error deleting old fingerprints from database", "err", err)
 		}
 	}
 
@@ -218,7 +218,7 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 	ret, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[MediaInfo])
 
 	if errors.Is(err, pgx.ErrNoRows) || (ret.Versions.Info < InfoVersion && ret.Versions.Info != 0) {
-		return s.storeFreshMetadata(context.Background(), path, sha)
+		return s.storeFreshMetadata(context.WithoutCancel(ctx), path, sha)
 	}
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 	}
 	err = ret.SearchExternalSubtitles()
 	if err != nil {
-		slog.Warn("couldn't find external subtitles", "err", err)
+		slog.WarnContext(ctx, "couldn't find external subtitles", "err", err)
 	}
 
 	rows, _ = s.Database.Query(
@@ -287,7 +287,7 @@ func (s *MetadataService) storeFreshMetadata(ctx context.Context, path string, s
 		return get_running()
 	}
 
-	ret, err := RetriveMediaInfo(path, sha)
+	ret, err := RetriveMediaInfo(ctx, path, sha)
 	if err != nil {
 		return set(nil, err)
 	}

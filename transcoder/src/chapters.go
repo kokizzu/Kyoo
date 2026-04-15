@@ -16,7 +16,7 @@ const (
 )
 
 func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo, nearEpisodes []string) {
-	defer utils.PrintExecTime("identify chapters for %s", info.Path)()
+	defer utils.PrintExecTime(ctx, "identify chapters for %s", info.Path)()
 
 	if info.Versions.Fingerprint >= FingerprintVersion {
 		return
@@ -24,7 +24,7 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 
 	fingerprint, err := s.ComputeFingerprint(ctx, info)
 	if err != nil {
-		slog.Error("failed to compute fingerprint", "path", info.Path, "err", err)
+		slog.ErrorContext(ctx, "failed to compute fingerprint", "path", info.Path, "err", err)
 		return
 	}
 
@@ -33,7 +33,7 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 	for _, otherPath := range nearEpisodes {
 		otherCandidates, err := s.compareWithOther(ctx, info, fingerprint, otherPath)
 		if err != nil {
-			slog.Warn("failed to compare episodes", "path", info.Path, "otherPath", otherPath, "err", err)
+			slog.WarnContext(ctx, "failed to compare episodes", "path", info.Path, "otherPath", otherPath, "err", err)
 			continue
 		}
 		candidates = append(candidates, otherCandidates...)
@@ -41,12 +41,12 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 
 	chapters := mergeChapters(info, candidates)
 	if err := s.saveChapters(ctx, info.Id, chapters); err != nil {
-		slog.Error("failed to save chapters", "path", info.Path, "err", err)
+		slog.ErrorContext(ctx, "failed to save chapters", "path", info.Path, "err", err)
 		return
 	}
 
 	if err := s.DeleteFingerprint(ctx, info.Id); err != nil {
-		slog.Warn("failed to delete fingerprint", "path", info.Path, "err", err)
+		slog.WarnContext(ctx, "failed to delete fingerprint", "path", info.Path, "err", err)
 	}
 
 	_, err = s.Database.Exec(ctx,
@@ -54,7 +54,7 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 		info.Id, FingerprintVersion,
 	)
 	if err != nil {
-		slog.Error("failed to update fingerprint version", "path", info.Path, "err", err)
+		slog.ErrorContext(ctx, "failed to update fingerprint version", "path", info.Path, "err", err)
 	}
 }
 
@@ -106,7 +106,7 @@ func (s *MetadataService) matchByChapterprints(
 
 		needle, err := s.GetChapterprint(ctx, *ch.FingerprintId)
 		if err != nil {
-			slog.Warn("failed to get chapterprint", "chapterprintId", *ch.FingerprintId, "err", err)
+			slog.WarnContext(ctx, "failed to get chapterprint", "chapterprintId", *ch.FingerprintId, "err", err)
 			continue
 		}
 
@@ -119,7 +119,7 @@ func (s *MetadataService) matchByChapterprints(
 
 		match, err := FpFindContain(fp, needle)
 		if err != nil {
-			slog.Warn("failed to find chapterprint in fingerprint", "err", err)
+			slog.WarnContext(ctx, "failed to find chapterprint in fingerprint", "err", err)
 			continue
 		}
 		if match == nil {
@@ -152,7 +152,7 @@ func (s *MetadataService) matchByOverlap(
 	}
 
 	if err := s.StoreFingerprint(ctx, otherInfo.Id, otherPrint); err != nil {
-		slog.Warn("failed to store fingerprint", "path", otherInfo.Path, "err", err)
+		slog.WarnContext(ctx, "failed to store fingerprint", "path", otherInfo.Path, "err", err)
 	}
 
 	intros, err := FpFindOverlap(fingerprint.Start, otherPrint.Start)
@@ -168,13 +168,13 @@ func (s *MetadataService) matchByOverlap(
 	for _, intro := range intros {
 		fp, err := ExtractSegment(fingerprint.Start, intro.StartFirst, intro.StartFirst+intro.Duration)
 		if err != nil {
-			slog.Warn("failed to extract intro segment", "err", err)
+			slog.WarnContext(ctx, "failed to extract intro segment", "err", err)
 			continue
 		}
 
 		fpId, err := s.StoreChapterprint(ctx, fp)
 		if err != nil {
-			slog.Warn("failed to store intro chapterprint", "err", err)
+			slog.WarnContext(ctx, "failed to store intro chapterprint", "err", err)
 			continue
 		}
 
@@ -193,13 +193,13 @@ func (s *MetadataService) matchByOverlap(
 	for _, ov := range credits {
 		segData, err := ExtractSegment(fingerprint.End, ov.StartFirst, ov.StartFirst+ov.Duration)
 		if err != nil {
-			slog.Warn("failed to extract credits segment", "err", err)
+			slog.WarnContext(ctx, "failed to extract credits segment", "err", err)
 			continue
 		}
 
 		fpId, err := s.StoreChapterprint(ctx, segData)
 		if err != nil {
-			slog.Warn("failed to store credits chapterprint", "err", err)
+			slog.WarnContext(ctx, "failed to store credits chapterprint", "err", err)
 			continue
 		}
 

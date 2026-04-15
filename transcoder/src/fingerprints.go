@@ -53,8 +53,9 @@ func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInf
 		return set(nil, fmt.Errorf("failed to query fingerprint: %w", err))
 	}
 
-	defer utils.PrintExecTime("chromaprint for %s", info.Path)()
+	defer utils.PrintExecTime(ctx, "chromaprint for %s", info.Path)()
 	startFingerprint, err := computeChromaprint(
+		ctx,
 		info.Path,
 		0,
 		min(info.Duration*FpStartPercent, FpStartDuration),
@@ -64,6 +65,7 @@ func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInf
 	}
 
 	endFingerprint, err := computeChromaprint(
+		ctx,
 		info.Path,
 		max(info.Duration-5*60, 0),
 		-1,
@@ -79,11 +81,13 @@ func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInf
 }
 
 func computeChromaprint(
+	ctx context.Context,
 	path string,
 	start float64,
 	duration float64,
 ) ([]uint32, error) {
-	defer utils.PrintExecTime("chromaprint for %s (between %f and %f)", path, start, duration)()
+	ctx = context.WithoutCancel(ctx)
+	defer utils.PrintExecTime(ctx, "chromaprint for %s (between %f and %f)", path, start, duration)()
 
 	args := []string{
 		"-v", "error",
@@ -102,7 +106,8 @@ func computeChromaprint(
 		"-",
 	)
 
-	cmd := exec.Command(
+	cmd := exec.CommandContext(
+		ctx,
 		"ffmpeg",
 		args...,
 	)

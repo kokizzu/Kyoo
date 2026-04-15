@@ -24,7 +24,7 @@ func (s *MetadataService) ExtractSubs(ctx context.Context, info *MediaInfo) (any
 
 	err := s.extractSubs(ctx, info)
 	if err != nil {
-		slog.Error("couldn't extract subs", "err", err)
+		slog.ErrorContext(ctx, "couldn't extract subs", "err", err)
 		return set(nil, err)
 	}
 	_, err = s.Database.Exec(ctx, `update gocoder.info set ver_extract = $2 where sha = $1`, info.Sha, ExtractVersion)
@@ -73,7 +73,7 @@ func (s *MetadataService) GetSubtitle(
 }
 
 func (s *MetadataService) extractSubs(ctx context.Context, info *MediaInfo) (err error) {
-	defer utils.PrintExecTime("extraction of %s", info.Path)()
+	defer utils.PrintExecTime(ctx, "extraction of %s", info.Path)()
 
 	// If there are no supported, embedded subtitles, there is nothing to extract.
 	hasSupportedSubtitle := false
@@ -129,11 +129,11 @@ func (s *MetadataService) extractSubs(ctx context.Context, info *MediaInfo) (err
 			)
 		}
 	}
-	slog.Info("starting extraction", "command", cmd.String())
+	slog.InfoContext(ctx, "starting extraction", "command", cmd.String())
 	cmd.Stdout = nil
 
 	if err := cmd.Run(); err != nil {
-		slog.Error("error starting ffmpeg extract", "err", err)
+		slog.ErrorContext(ctx, "error starting ffmpeg extract", "err", err)
 		return err
 	}
 
@@ -142,7 +142,7 @@ func (s *MetadataService) extractSubs(ctx context.Context, info *MediaInfo) (err
 		return fmt.Errorf("failed while saving files to backend: %w", err)
 	}
 
-	slog.Info("extraction finished", "path", info.Path)
+	slog.InfoContext(ctx, "extraction finished", "path", info.Path)
 
 	return nil
 }

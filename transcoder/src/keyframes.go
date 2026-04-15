@@ -102,7 +102,7 @@ type KeyframeKey struct {
 	Index   uint32
 }
 
-func (s *MetadataService) GetKeyframes(info *MediaInfo, isVideo bool, idx uint32) (*Keyframe, error) {
+func (s *MetadataService) GetKeyframes(ctx context.Context, info *MediaInfo, isVideo bool, idx uint32) (*Keyframe, error) {
 	info.lock.Lock()
 	var ret *Keyframe
 	if isVideo && info.Videos[idx].Keyframes != nil {
@@ -139,20 +139,20 @@ func (s *MetadataService) GetKeyframes(info *MediaInfo, isVideo bool, idx uint32
 	}
 	info.lock.Unlock()
 
-	go func() {
-		ctx := context.Background()
+	go func(ctx context.Context) {
+		ctx = context.WithoutCancel(ctx)
 		var table string
 		var err error
 		if isVideo {
 			table = "gocoder.videos"
-			err = getVideoKeyframes(info.Path, idx, kf)
+			err = getVideoKeyframes(ctx, info.Path, idx, kf)
 		} else {
 			table = "gocoder.audios"
-			err = getAudioKeyframes(info, idx, kf)
+			err = getAudioKeyframes(ctx, info, idx, kf)
 		}
 
 		if err != nil {
-			slog.Error("couldn't retrieve keyframes", "path", info.Path, "table", table, "idx", idx, "err", err)
+			slog.ErrorContext(ctx, "couldn't retrieve keyframes", "path", info.Path, "table", table, "idx", idx, "err", err)
 			return
 		}
 
@@ -168,22 +168,23 @@ func (s *MetadataService) GetKeyframes(info *MediaInfo, isVideo bool, idx uint32
 		tx.Exec(ctx, `update gocoder.info set ver_keyframes = $2 where id = $1`, info.Id, KeyframeVersion)
 		err = tx.Commit(ctx)
 		if err != nil {
-			slog.Error("couldn't store keyframes on database", "err", err)
+			slog.ErrorContext(ctx, "couldn't store keyframes on database", "err", err)
 		}
-	}()
+	}(ctx)
 	return set(kf, nil)
 }
 
 // Retrive video's keyframes and store them inside the kf var.
 // Returns when all key frames are retrived (or an error occurs)
 // info.ready.Done() is called when more than 100 are retrived (or extraction is done)
-func getVideoKeyframes(path string, video_idx uint32, kf *Keyframe) error {
-	defer utils.PrintExecTime("ffprobe keyframe analysis for %s video n%d", path, video_idx)()
+func getVideoKeyframes(ctx context.Context, path string, video_idx uint32, kf *Keyframe) error {
+	defer utils.PrintExecTime(ctx, "ffprobe keyframe analysis for %s video n%d", path, video_idx)()
 	// run ffprobe to return all IFrames, IFrames are points where we can split the video in segments.
 	// We ask ffprobe to return the time of each frame and it's flags
 	// We could ask it to return only i-frames (keyframes) with the -skip_frame nokey but using it is extremly slow
 	// since ffmpeg parses every frames when this flag is set.
-	cmd := exec.Command(
+	cmd := exec.CommandContext(
+		ctx,
 		"ffprobe",
 		"-loglevel", "error",
 		"-select_streams", fmt.Sprintf("V:%d", video_idx),
@@ -278,8 +279,8 @@ func getVideoKeyframes(path string, video_idx uint32, kf *Keyframe) error {
 const DummyKeyframeDuration = float64(4)
 
 // we can pretty much cut audio at any point so no need to get specific frames, just cut every 4s
-func getAudioKeyframes(info *MediaInfo, audio_idx uint32, kf *Keyframe) error {
-	defer utils.PrintExecTime("ffprobe keyframe analysis for %s audio n%d", info.Path, audio_idx)()
+func getAudioKeyframes(ctx context.Context, info *MediaInfo, audio_idx uint32, kf *Keyframe) error {
+	defer utils.PrintExecTime(ctx, "ffprobe keyframe analysis for %s audio n%d", info.Path, audio_idx)()
 	// Format's duration CAN be different than audio's duration. To make sure we do not
 	// miss a segment or make one more, we need to check the audio's duration.
 	//
@@ -304,7 +305,8 @@ func getAudioKeyframes(info *MediaInfo, audio_idx uint32, kf *Keyframe) error {
 	//
 	// We could use the same command to retrieve all packets and know when we can cut PRECISELY
 	// but since packets always contain only a few ms we don't need this precision.
-	cmd := exec.Command(
+	cmd := exec.CommandContext(
+		ctx,
 		"ffprobe",
 		"-select_streams", fmt.Sprintf("a:%d", audio_idx),
 		"-show_entries", "packet=pts_time",

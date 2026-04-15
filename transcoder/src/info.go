@@ -181,7 +181,7 @@ func ParseFloat(str string) float32 {
 func ParseUint(str string) uint32 {
 	i, err := strconv.ParseUint(str, 10, 32)
 	if err != nil {
-		slog.Warn("failed to parse uint", "value", str, "err", err)
+		slog.WarnContext(context.WithoutCancel(context.Background()), "failed to parse uint", "value", str, "err", err)
 		return 0
 	}
 	return uint32(i)
@@ -190,7 +190,7 @@ func ParseUint(str string) uint32 {
 func ParseInt64(str string) int64 {
 	i, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		slog.Warn("failed to parse int64", "value", str, "err", err)
+		slog.WarnContext(context.WithoutCancel(context.Background()), "failed to parse int64", "value", str, "err", err)
 		return 0
 	}
 	return i
@@ -244,11 +244,10 @@ var SubtitleExtensions = map[string]string{
 	"hdmv_pgs_subtitle": "sup",
 }
 
-func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
-	defer utils.PrintExecTime("mediainfo for %s", path)()
-
-	ctx, cancelFn := context.WithTimeout(context.Background(), 30*time.Second)
+func RetriveMediaInfo(ctx context.Context, path string, sha string) (*MediaInfo, error) {
+	ctx, cancelFn := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancelFn()
+	defer utils.PrintExecTime(ctx, "mediainfo for %s", path)()
 
 	mi, err := ffprobe.ProbeURL(ctx, path)
 	if err != nil {
