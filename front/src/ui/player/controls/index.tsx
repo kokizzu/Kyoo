@@ -21,6 +21,7 @@ export const Controls = ({
 	chapters,
 	playPrev,
 	playNext,
+	seekEnd,
 	onOpenEntriesMenu,
 	forceShow,
 }: {
@@ -34,6 +35,7 @@ export const Controls = ({
 	chapters: Chapter[];
 	playPrev: (() => boolean) | null;
 	playNext: (() => boolean) | null;
+	seekEnd: () => void;
 	onOpenEntriesMenu?: () => void;
 	forceShow?: boolean;
 }) => {
@@ -98,6 +100,7 @@ export const Controls = ({
 				player={player}
 				chapters={chapters}
 				isVisible={controlsVisible}
+				seekEnd={seekEnd}
 			/>
 		</View>
 	);
