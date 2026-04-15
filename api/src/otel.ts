@@ -19,6 +19,7 @@ import type { LogRecordExporter } from "@opentelemetry/sdk-logs";
 import {
 	BatchLogRecordProcessor,
 	LoggerProvider,
+	type LogRecordProcessor,
 } from "@opentelemetry/sdk-logs";
 import {
 	MeterProvider,
@@ -44,6 +45,20 @@ const resource = resourceFromAttributes({
 });
 
 const logger = getLogger();
+
+// all logs in kyoo are in uppercase by default, also make it uppercase here.
+function upperCaseSeverityTextProcessor(): LogRecordProcessor {
+	return {
+		onEmit(logRecord) {
+			const record = logRecord as { severityText?: string };
+			if (typeof record.severityText === "string") {
+				record.severityText = record.severityText.toUpperCase();
+			}
+		},
+		forceFlush: async () => {},
+		shutdown: async () => {},
+	};
+}
 
 export function setupOtel() {
 	logger.info("Configuring OTEL");
@@ -99,7 +114,10 @@ export function setupOtel() {
 	if (le) {
 		lp = new LoggerProvider({
 			resource,
-			processors: [new BatchLogRecordProcessor(le)],
+			processors: [
+				upperCaseSeverityTextProcessor(),
+				new BatchLogRecordProcessor(le),
+			],
 		});
 	}
 
