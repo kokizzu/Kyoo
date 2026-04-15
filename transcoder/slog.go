@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-
-	slogotel "github.com/go-slog/otelslog"
 )
 
 type tee struct {
@@ -68,7 +66,7 @@ func SetupLogger(ctx context.Context) (func(context.Context) error, error) {
 	minStdout := parseLogLevel(os.Getenv("STDOUT_LOG_LEVEL"))
 	minOtel := parseLogLevel(os.Getenv("OTEL_LOG_LEVEL"))
 
-	handler := slogotel.NewHandler(NewTee(stdout, otelHandler, minStdout, minOtel))
+	handler := NewTee(stdout, otelHandler, minStdout, minOtel)
 
 	logger := slog.New(handler)
 	shutdown := func(ctx context.Context) error { return nil }

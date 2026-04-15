@@ -6,15 +6,23 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"go.opentelemetry.io/otel"
 )
+
+var tracer = otel.Tracer("")
 
 func PrintExecTime(ctx context.Context, message string, args ...any) func() {
 	msg := fmt.Sprintf(message, args...)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_, span := tracer.Start(ctx, msg)
 	start := time.Now()
-	slog.InfoContext(ctx, "running", "message", msg)
 
 	return func() {
-		slog.InfoContext(ctx, "finished", "message", msg, "duration", time.Since(start))
+		slog.InfoContext(ctx, fmt.Sprintf("finished %s", msg), "duration", time.Since(start))
+		span.End()
 	}
 }
 

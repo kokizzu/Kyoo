@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 
 	echootel "github.com/labstack/echo-opentelemetry"
@@ -35,11 +37,119 @@ import (
 )
 
 func newOtelBridgeHandler() slog.Handler {
-	return logotelbridge.NewHandler(
+	bridgeHandler := logotelbridge.NewHandler(
 		"slog",
 		logotelbridge.WithLoggerProvider(logotelglobal.GetLoggerProvider()),
 		logotelbridge.WithAttributes(attributeotel.String("source", "slog")),
 	)
+
+	return &fullTextMessageHandler{next: bridgeHandler}
+}
+
+type fullTextMessageHandler struct {
+	next   slog.Handler
+	attrs  []slog.Attr
+	groups []string
+}
+
+func (h *fullTextMessageHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.next.Enabled(ctx, level)
+}
+
+func (h *fullTextMessageHandler) Handle(ctx context.Context, r slog.Record) error {
+	parts := make([]string, 0)
+	for _, attr := range h.attrs {
+		parts = appendAttrParts(parts, h.groups, attr)
+	}
+	r.Attrs(func(attr slog.Attr) bool {
+		parts = appendAttrParts(parts, h.groups, attr)
+		return true
+	})
+
+	message := r.Message
+	if len(parts) > 0 {
+		message = fmt.Sprintf("%s %s", message, strings.Join(parts, " "))
+	}
+
+	record := slog.NewRecord(r.Time, r.Level, message, r.PC)
+	r.Attrs(func(attr slog.Attr) bool {
+		record.AddAttrs(attr)
+		return true
+	})
+
+	return h.next.Handle(ctx, record)
+}
+
+func (h *fullTextMessageHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	combined := make([]slog.Attr, 0, len(h.attrs)+len(attrs))
+	combined = append(combined, h.attrs...)
+	combined = append(combined, attrs...)
+
+	groups := make([]string, len(h.groups))
+	copy(groups, h.groups)
+
+	return &fullTextMessageHandler{
+		next:   h.next.WithAttrs(attrs),
+		attrs:  combined,
+		groups: groups,
+	}
+}
+
+func (h *fullTextMessageHandler) WithGroup(name string) slog.Handler {
+	attrs := make([]slog.Attr, len(h.attrs))
+	copy(attrs, h.attrs)
+
+	groups := make([]string, 0, len(h.groups)+1)
+	groups = append(groups, h.groups...)
+	groups = append(groups, name)
+
+	return &fullTextMessageHandler{
+		next:   h.next.WithGroup(name),
+		attrs:  attrs,
+		groups: groups,
+	}
+}
+
+func appendAttrParts(parts []string, groups []string, attr slog.Attr) []string {
+	attr.Value = attr.Value.Resolve()
+	if attr.Equal(slog.Attr{}) {
+		return parts
+	}
+
+	if attr.Value.Kind() == slog.KindGroup {
+		nextGroups := groups
+		if attr.Key != "" {
+			nextGroups = append(append([]string(nil), groups...), attr.Key)
+		}
+		for _, nestedAttr := range attr.Value.Group() {
+			parts = appendAttrParts(parts, nextGroups, nestedAttr)
+		}
+		return parts
+	}
+
+	keyParts := groups
+	if attr.Key != "" {
+		keyParts = append(append([]string(nil), groups...), attr.Key)
+	}
+	key := strings.Join(keyParts, ".")
+	if key == "" {
+		return parts
+	}
+
+	return append(parts, fmt.Sprintf("%s=%s", key, formatAttrValue(attr.Value)))
+}
+
+func formatAttrValue(value slog.Value) string {
+	switch value.Kind() {
+	case slog.KindString:
+		stringValue := value.String()
+		if strings.ContainsAny(stringValue, " \t\n\r\"=") {
+			return strconv.Quote(stringValue)
+		}
+		return stringValue
+	default:
+		return value.String()
+	}
 }
 
 func setupOtel(ctx context.Context) (func(context.Context) error, error) {
