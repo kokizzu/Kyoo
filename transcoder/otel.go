@@ -29,7 +29,18 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	traceotel "go.opentelemetry.io/otel/trace"
 	traceotelnoop "go.opentelemetry.io/otel/trace/noop"
+
+	logotelbridge "go.opentelemetry.io/contrib/bridges/otelslog"
+	attributeotel "go.opentelemetry.io/otel/attribute"
 )
+
+func newOtelBridgeHandler() slog.Handler {
+	return logotelbridge.NewHandler(
+		"slog",
+		logotelbridge.WithLoggerProvider(logotelglobal.GetLoggerProvider()),
+		logotelbridge.WithAttributes(attributeotel.String("source", "slog")),
+	)
+}
 
 func setupOtel(ctx context.Context) (func(context.Context) error, error) {
 	res, err := resource.New(

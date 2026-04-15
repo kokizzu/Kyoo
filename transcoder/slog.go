@@ -6,8 +6,7 @@ import (
 	"os"
 	"strings"
 
-	logotelbridge "go.opentelemetry.io/contrib/bridges/otelslog"
-	logotelglobal "go.opentelemetry.io/otel/log/global"
+	slogotel "github.com/go-slog/otelslog"
 )
 
 type tee struct {
@@ -64,12 +63,12 @@ func SetupLogger(ctx context.Context) (func(context.Context) error, error) {
 			return a
 		},
 	})
-	otelHandler := logotelbridge.NewHandler("slog", logotelbridge.WithLoggerProvider(logotelglobal.GetLoggerProvider()))
+	otelHandler := newOtelBridgeHandler()
 
 	minStdout := parseLogLevel(os.Getenv("STDOUT_LOG_LEVEL"))
 	minOtel := parseLogLevel(os.Getenv("OTEL_LOG_LEVEL"))
 
-	handler := NewTee(stdout, otelHandler, minStdout, minOtel)
+	handler := slogotel.NewHandler(NewTee(stdout, otelHandler, minStdout, minOtel))
 
 	logger := slog.New(handler)
 	shutdown := func(ctx context.Context) error { return nil }
