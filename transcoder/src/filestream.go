@@ -3,7 +3,7 @@ package src
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"os"
 	"slices"
@@ -69,7 +69,7 @@ func (fs *FileStream) Kill() {
 }
 
 func (fs *FileStream) Destroy() {
-	log.Printf("Removing all transcode cache files for %s", fs.Info.Path)
+	slog.Info("removing all transcode cache files", "path", fs.Info.Path)
 	fs.Kill()
 	_ = os.RemoveAll(fs.Out)
 }

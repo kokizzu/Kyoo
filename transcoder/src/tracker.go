@@ -1,7 +1,7 @@
 package src
 
 import (
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -126,7 +126,7 @@ func (t *Tracker) KillStreamIfDead(sha string, path string) bool {
 			return false
 		}
 	}
-	log.Printf("Nobody is watching %s. Killing it", path)
+	slog.Info("nobody is watching stream, killing it", "path", path)
 
 	stream, ok := t.transcoder.streams.Get(sha)
 	if !ok {
@@ -157,7 +157,7 @@ func (t *Tracker) KillAudioIfDead(sha string, path string, audio AudioKey) bool 
 			return false
 		}
 	}
-	log.Printf("Nobody is listening audio %d of %s. Killing it", audio.idx, path)
+	slog.Info("nobody is listening audio, killing it", "audioIdx", audio.idx, "path", path)
 
 	stream, ok := t.transcoder.streams.Get(sha)
 	if !ok {
@@ -177,7 +177,7 @@ func (t *Tracker) KillVideoIfDead(sha string, path string, video VideoKey) bool 
 			return false
 		}
 	}
-	log.Printf("Nobody is watching %s video %d quality %s. Killing it", path, video.idx, video.quality)
+	slog.Info("nobody is watching video quality, killing it", "path", path, "videoIdx", video.idx, "quality", video.quality)
 
 	stream, ok := t.transcoder.streams.Get(sha)
 	if !ok {
@@ -229,7 +229,7 @@ func (t *Tracker) killOrphanedeheads(stream *Stream, is_video bool) {
 			distance = min(Abs(ihead-head.segment), distance)
 		}
 		if distance > 20 {
-			log.Printf("Killing orphaned head %s %d", stream.file.Info.Path, encoder_id)
+			slog.Info("killing orphaned head", "path", stream.file.Info.Path, "encoderId", encoder_id)
 			stream.KillHead(encoder_id)
 		}
 	}

@@ -7,7 +7,7 @@ import (
 	"image"
 	"image/color"
 	"io"
-	"log"
+	"log/slog"
 	"math"
 	"strings"
 	"sync"
@@ -95,7 +95,7 @@ func (s *MetadataService) extractThumbnail(ctx context.Context, path string, sha
 
 	gen, err := screengen.NewGenerator(path)
 	if err != nil {
-		log.Printf("Error reading video file: %v", err)
+		slog.Error("error reading video file", "path", path, "err", err)
 		return err
 	}
 	defer gen.Close()
@@ -120,13 +120,13 @@ func (s *MetadataService) extractThumbnail(ctx context.Context, path string, sha
 	sprite := imaging.New(width*columns, height*rows, color.Black)
 	vtt := "WEBVTT\n\n"
 
-	log.Printf("Extracting %d thumbnails for %s (interval of %d).", numcaps, path, interval)
+	slog.Info("extracting thumbnails", "count", numcaps, "path", path, "interval", interval)
 
 	ts := 0
 	for i := 0; i < numcaps; i++ {
 		img, err := gen.ImageWxH(int64(ts*1000), width, height)
 		if err != nil {
-			log.Printf("Could not generate screenshot %s", err)
+			slog.Error("could not generate screenshot", "err", err)
 			return err
 		}
 

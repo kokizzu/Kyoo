@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 	"sync"
@@ -152,7 +152,7 @@ func (s *MetadataService) GetKeyframes(info *MediaInfo, isVideo bool, idx uint32
 		}
 
 		if err != nil {
-			log.Printf("Couldn't retrieve keyframes for %s %s %d: %v", info.Path, table, idx, err)
+			slog.Error("couldn't retrieve keyframes", "path", info.Path, "table", table, "idx", idx, "err", err)
 			return
 		}
 
@@ -168,7 +168,7 @@ func (s *MetadataService) GetKeyframes(info *MediaInfo, isVideo bool, idx uint32
 		tx.Exec(ctx, `update gocoder.info set ver_keyframes = $2 where id = $1`, info.Id, KeyframeVersion)
 		err = tx.Commit(ctx)
 		if err != nil {
-			log.Printf("Couldn't store keyframes on database: %v", err)
+			slog.Error("couldn't store keyframes on database", "err", err)
 		}
 	}()
 	return set(kf, nil)

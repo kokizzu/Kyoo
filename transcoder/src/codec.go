@@ -2,7 +2,7 @@ package src
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"gopkg.in/vansante/go-ffprobe.v2"
@@ -143,7 +143,7 @@ func GetMimeCodec(stream *ffprobe.Stream) *string {
 		return &ret
 
 	default:
-		log.Printf("No known mime format for: %s", stream.CodecName)
+		slog.Warn("no known mime format", "codec", stream.CodecName)
 		return nil
 	}
 }

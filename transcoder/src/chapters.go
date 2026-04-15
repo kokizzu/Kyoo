@@ -3,6 +3,7 @@ package src
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 
 	"github.com/zoriya/kyoo/transcoder/src/utils"
@@ -23,7 +24,7 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 
 	fingerprint, err := s.ComputeFingerprint(ctx, info)
 	if err != nil {
-		fmt.Printf("failed to compute fingerprint for %s: %v\n", info.Path, err)
+		slog.Error("failed to compute fingerprint", "path", info.Path, "err", err)
 		return
 	}
 
@@ -32,7 +33,7 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 	for _, otherPath := range nearEpisodes {
 		otherCandidates, err := s.compareWithOther(ctx, info, fingerprint, otherPath)
 		if err != nil {
-			fmt.Printf("failed to compare %s with %s: %v\n", info.Path, otherPath, err)
+			slog.Warn("failed to compare episodes", "path", info.Path, "otherPath", otherPath, "err", err)
 			continue
 		}
 		candidates = append(candidates, otherCandidates...)
@@ -40,12 +41,12 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 
 	chapters := mergeChapters(info, candidates)
 	if err := s.saveChapters(ctx, info.Id, chapters); err != nil {
-		fmt.Printf("failed to save chapters for %s: %v\n", info.Path, err)
+		slog.Error("failed to save chapters", "path", info.Path, "err", err)
 		return
 	}
 
 	if err := s.DeleteFingerprint(ctx, info.Id); err != nil {
-		fmt.Printf("failed to delete fingerprint for %s: %v\n", info.Path, err)
+		slog.Warn("failed to delete fingerprint", "path", info.Path, "err", err)
 	}
 
 	_, err = s.Database.Exec(ctx,
@@ -53,7 +54,7 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 		info.Id, FingerprintVersion,
 	)
 	if err != nil {
-		fmt.Printf("failed to update fingerprint version for %s: %v\n", info.Path, err)
+		slog.Error("failed to update fingerprint version", "path", info.Path, "err", err)
 	}
 }
 
@@ -105,7 +106,7 @@ func (s *MetadataService) matchByChapterprints(
 
 		needle, err := s.GetChapterprint(ctx, *ch.FingerprintId)
 		if err != nil {
-			fmt.Printf("failed to get chapterprint %d: %v\n", *ch.FingerprintId, err)
+			slog.Warn("failed to get chapterprint", "chapterprintId", *ch.FingerprintId, "err", err)
 			continue
 		}
 
@@ -118,7 +119,7 @@ func (s *MetadataService) matchByChapterprints(
 
 		match, err := FpFindContain(fp, needle)
 		if err != nil {
-			fmt.Printf("failed to find chapterprint in fingerprint: %v\n", err)
+			slog.Warn("failed to find chapterprint in fingerprint", "err", err)
 			continue
 		}
 		if match == nil {
@@ -151,7 +152,7 @@ func (s *MetadataService) matchByOverlap(
 	}
 
 	if err := s.StoreFingerprint(ctx, otherInfo.Id, otherPrint); err != nil {
-		fmt.Printf("failed to store fingerprint for %s: %v\n", otherInfo.Path, err)
+		slog.Warn("failed to store fingerprint", "path", otherInfo.Path, "err", err)
 	}
 
 	intros, err := FpFindOverlap(fingerprint.Start, otherPrint.Start)
@@ -167,13 +168,13 @@ func (s *MetadataService) matchByOverlap(
 	for _, intro := range intros {
 		fp, err := ExtractSegment(fingerprint.Start, intro.StartFirst, intro.StartFirst+intro.Duration)
 		if err != nil {
-			fmt.Printf("failed to extract segment: %v\n", err)
+			slog.Warn("failed to extract intro segment", "err", err)
 			continue
 		}
 
 		fpId, err := s.StoreChapterprint(ctx, fp)
 		if err != nil {
-			fmt.Printf("failed to store chapterprint: %v\n", err)
+			slog.Warn("failed to store intro chapterprint", "err", err)
 			continue
 		}
 
@@ -192,13 +193,13 @@ func (s *MetadataService) matchByOverlap(
 	for _, ov := range credits {
 		segData, err := ExtractSegment(fingerprint.End, ov.StartFirst, ov.StartFirst+ov.Duration)
 		if err != nil {
-			fmt.Printf("failed to extract segment: %v\n", err)
+			slog.Warn("failed to extract credits segment", "err", err)
 			continue
 		}
 
 		fpId, err := s.StoreChapterprint(ctx, segData)
 		if err != nil {
-			fmt.Printf("failed to store chapterprint: %v\n", err)
+			slog.Warn("failed to store credits chapterprint", "err", err)
 			continue
 		}
 

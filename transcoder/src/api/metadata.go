@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
@@ -110,7 +111,7 @@ func (h *mhandler) Prepare(c *echo.Context) error {
 
 		info, err := h.metadata.GetMetadata(bgCtx, path, sha)
 		if err != nil {
-			fmt.Printf("failed to prepare metadata for %s: %v\n", path, err)
+			slog.Error("failed to prepare metadata", "path", path, "err", err)
 			return
 		}
 
@@ -118,12 +119,12 @@ func (h *mhandler) Prepare(c *echo.Context) error {
 
 		for _, video := range info.Videos {
 			if _, err := h.metadata.GetKeyframes(info, true, video.Index); err != nil {
-				fmt.Printf("failed to extract video keyframes for %s (stream %d): %v\n", path, video.Index, err)
+				slog.Warn("failed to extract video keyframes", "path", path, "stream", video.Index, "err", err)
 			}
 		}
 		for _, audio := range info.Audios {
 			if _, err := h.metadata.GetKeyframes(info, false, audio.Index); err != nil {
-				fmt.Printf("failed to extract audio keyframes for %s (stream %d): %v\n", path, audio.Index, err)
+				slog.Warn("failed to extract audio keyframes", "path", path, "stream", audio.Index, "err", err)
 			}
 		}
 

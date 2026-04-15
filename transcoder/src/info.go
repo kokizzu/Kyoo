@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"mime"
 	"os"
 	"path/filepath"
@@ -180,7 +181,7 @@ func ParseFloat(str string) float32 {
 func ParseUint(str string) uint32 {
 	i, err := strconv.ParseUint(str, 10, 32)
 	if err != nil {
-		println(str)
+		slog.Warn("failed to parse uint", "value", str, "err", err)
 		return 0
 	}
 	return uint32(i)
@@ -189,7 +190,7 @@ func ParseUint(str string) uint32 {
 func ParseInt64(str string) int64 {
 	i, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		println(str)
+		slog.Warn("failed to parse int64", "value", str, "err", err)
 		return 0
 	}
 	return i

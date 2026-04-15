@@ -3,17 +3,17 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 )
 
 func PrintExecTime(message string, args ...any) func() {
 	msg := fmt.Sprintf(message, args...)
 	start := time.Now()
-	log.Printf("Running %s", msg)
+	slog.Info(fmt.Sprintf("running %s", msg))
 
 	return func() {
-		log.Printf("%s finished in %s", msg, time.Since(start))
+		slog.Info(fmt.Sprintf("finished %s in %d", msg, time.Since(start)))
 	}
 }
 

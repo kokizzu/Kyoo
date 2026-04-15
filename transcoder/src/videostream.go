@@ -2,7 +2,7 @@ package src
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 )
 
 type VideoStream struct {
@@ -12,12 +12,7 @@ type VideoStream struct {
 }
 
 func (t *Transcoder) NewVideoStream(file *FileStream, idx uint32, quality VideoQuality) (*VideoStream, error) {
-	log.Printf(
-		"Creating a new video stream for %s (n %d) in quality %s",
-		file.Info.Path,
-		idx,
-		quality,
-	)
+	slog.Info("creating a new video stream", "path", file.Info.Path, "idx", idx, "quality", quality)
 
 	keyframes, err := t.metadataService.GetKeyframes(file.Info, true, idx)
 	if err != nil {

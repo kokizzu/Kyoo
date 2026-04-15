@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -155,14 +155,7 @@ func (ts *Stream) run(start int32) error {
 	ts.heads = append(ts.heads, Head{segment: start, end: end, command: nil})
 	ts.lock.Unlock()
 
-	log.Printf(
-		"Starting transcode %d for %s (from %d to %d out of %d segments)",
-		encoder_id,
-		ts.file.Info.Path,
-		start,
-		end,
-		length,
-	)
+	slog.Info("starting transcode", "encoderId", encoder_id, "path", ts.file.Info.Path, "start", start, "end", end, "length", length)
 
 	// Include both the start and end delimiter because -ss and -to are not accurate
 	// Having an extra segment allows us to cut precisely the segments we want with the
@@ -279,7 +272,7 @@ func (ts *Stream) run(start int32) error {
 	)
 
 	cmd := exec.Command("ffmpeg", args...)
-	log.Printf("Running %s", strings.Join(cmd.Args, " "))
+	slog.Info("running ffmpeg", "args", strings.Join(cmd.Args, " "))
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -312,11 +305,11 @@ func (ts *Stream) run(start int32) error {
 			}
 			ts.lock.Lock()
 			ts.heads[encoder_id].segment = segment
-			log.Printf("Segment %d got ready (%d)", segment, encoder_id)
+			slog.Info("segment got ready", "segment", segment, "encoderId", encoder_id)
 			if ts.isSegmentReady(segment) {
 				// the current segment is already marked at done so another process has already gone up to here.
 				cmd.Process.Signal(os.Interrupt)
-				log.Printf("Killing ffmpeg because segment %d is already ready", segment)
+				slog.Info("killing ffmpeg because segment already ready", "segment", segment, "encoderId", encoder_id)
 				should_stop = true
 			} else {
 				ts.segments[segment].encoder = encoder_id
@@ -326,7 +319,7 @@ func (ts *Stream) run(start int32) error {
 					should_stop = true
 				} else if ts.isSegmentReady(segment + 1) {
 					cmd.Process.Signal(os.Interrupt)
-					log.Printf("Killing ffmpeg because next segment %d is ready", segment)
+					slog.Info("killing ffmpeg because next segment is ready", "segment", segment, "encoderId", encoder_id)
 					should_stop = true
 				}
 			}
@@ -339,18 +332,18 @@ func (ts *Stream) run(start int32) error {
 		}
 
 		if err := scanner.Err(); err != nil {
-			log.Println("Error reading stdout of ffmpeg", err)
+			slog.Warn("error reading ffmpeg stdout", "err", err)
 		}
 	}()
 
 	go func() {
 		err := cmd.Wait()
 		if exiterr, ok := err.(*exec.ExitError); ok && exiterr.ExitCode() == 255 {
-			log.Printf("ffmpeg %d was killed by us", encoder_id)
+			slog.Info("ffmpeg was killed by us", "encoderId", encoder_id)
 		} else if err != nil {
-			log.Printf("ffmpeg %d occured an error: %s: %s", encoder_id, err, stderr.String())
+			slog.Error("ffmpeg occured an error", "encoderId", encoder_id, "err", err, "stderr", stderr.String())
 		} else {
-			log.Printf("ffmpeg %d finished successfully", encoder_id)
+			slog.Info("ffmpeg finished successfully", "encoderId", encoder_id)
 		}
 
 		ts.lock.Lock()
@@ -410,13 +403,13 @@ func (ts *Stream) GetSegment(segment int32) (string, error) {
 	if !ready {
 		// Only start a new encode if there is too big a distance between the current encoder and the segment.
 		if distance > 60 || !is_scheduled {
-			log.Printf("Creating new head for %d since closest head is %fs aways", segment, distance)
+			slog.Info("creating new head", "segment", segment, "distance", distance)
 			err := ts.run(segment)
 			if err != nil {
 				return "", err
 			}
 		} else {
-			log.Printf("Waiting for segment %d since encoder head is %fs aways", segment, distance)
+			slog.Info("waiting for segment", "segment", segment, "distance", distance)
 		}
 
 		select {
@@ -447,7 +440,7 @@ func (ts *Stream) prerareNextSegements(segment int32) {
 		if ts.getMinEncoderDistance(i) < 60+(5*float64(i-segment)) {
 			continue
 		}
-		log.Printf("Creating new head for future segment (%d)", i)
+		slog.Info("creating new head for future segment", "segment", i)
 		go ts.run(i)
 		return
 	}

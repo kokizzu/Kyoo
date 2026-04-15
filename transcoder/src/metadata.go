@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -99,11 +100,11 @@ func (s *MetadataService) setupDb() (*pgxpool.Pool, error) {
 
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
-		fmt.Printf("Could not connect to database, check your env variables!\n")
+		slog.Error("could not connect to database, check your env variables", "err", err)
 		return nil, err
 	}
 
-	fmt.Println("Migrating database")
+	slog.Info("migrating database")
 	dbi := stdlib.OpenDBFromPool(db)
 	defer dbi.Close()
 
@@ -119,7 +120,7 @@ func (s *MetadataService) setupDb() (*pgxpool.Pool, error) {
 		return nil, err
 	}
 	m.Up()
-	fmt.Println("Migrating finished")
+	slog.Info("migrating finished")
 
 	return db, nil
 }
@@ -178,7 +179,7 @@ func (s *MetadataService) GetMetadata(ctx context.Context, path string, sha stri
 		tx.Exec(bgCtx, `update gocoder.info set ver_keyframes = 0 where id = $1`, ret.Id)
 		err = tx.Commit(bgCtx)
 		if err != nil {
-			fmt.Printf("error deleting old keyframes from database: %v", err)
+			slog.Error("error deleting old keyframes from database", "err", err)
 		}
 	}
 
@@ -191,7 +192,7 @@ func (s *MetadataService) GetMetadata(ctx context.Context, path string, sha stri
 		tx.Exec(bgCtx, `update gocoder.info set ver_fingerprint = 0 where id = $1`, ret.Id)
 		err = tx.Commit(bgCtx)
 		if err != nil {
-			fmt.Printf("error deleting old fingerprints from database: %v", err)
+			slog.Error("error deleting old fingerprints from database", "err", err)
 		}
 	}
 
@@ -265,7 +266,7 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 	}
 	err = ret.SearchExternalSubtitles()
 	if err != nil {
-		fmt.Printf("Couldn't find external subtitles: %v", err)
+		slog.Warn("couldn't find external subtitles", "err", err)
 	}
 
 	rows, _ = s.Database.Query(

@@ -2,7 +2,7 @@ package src
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 )
 
 type AudioStream struct {
@@ -12,7 +12,7 @@ type AudioStream struct {
 }
 
 func (t *Transcoder) NewAudioStream(file *FileStream, idx uint32, quality AudioQuality) (*AudioStream, error) {
-	log.Printf("Creating a audio stream %d for %s", idx, file.Info.Path)
+	slog.Info("creating an audio stream", "idx", idx, "path", file.Info.Path)
 
 	keyframes, err := t.metadataService.GetKeyframes(file.Info, false, idx)
 	if err != nil {
