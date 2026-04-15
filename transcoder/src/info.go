@@ -152,10 +152,12 @@ type Chapter struct {
 	EndTime float32 `json:"endTime" db:"end_time"`
 	/// The name of this chapter. This should be a human-readable name that could be presented to the user.
 	Name string `json:"name" db:"name"`
-	/// The type value is used to mark special chapters (openning/credits...)
+	/// The type value is used to mark special chapters (opening/credits...)
 	Type ChapterType `json:"type" db:"type"`
 	/// Reference to the chapterprint used for fingerprint matching.
-	FingerprintId *int32 `json:"-" db:"fingerprint_id"`
+	FingerprintId *int32   `json:"-" db:"fingerprint_id"`
+	/// Only used internally, never fetched from db.
+	Fingerprint   []uint32 `json:"-" db:"-"`
 	/// Accuracy of the fingerprint match (0-100).
 	MatchAccuracy *int32 `json:"matchAccuracy,omitempty" db:"match_accuracy"`
 }

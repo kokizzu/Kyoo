@@ -172,12 +172,6 @@ func (s *MetadataService) matchByOverlap(
 			continue
 		}
 
-		fpId, err := s.StoreChapterprint(ctx, fp)
-		if err != nil {
-			slog.WarnContext(ctx, "failed to store intro chapterprint", "err", err)
-			continue
-		}
-
 		slog.InfoContext(ctx, "Identified intro", "start", intro.StartFirst, "duration", intro.Duration)
 		candidates = append(candidates, Chapter{
 			Id:            info.Id,
@@ -185,21 +179,15 @@ func (s *MetadataService) matchByOverlap(
 			EndTime:       float32(intro.StartFirst + intro.Duration),
 			Name:          "",
 			Type:          Intro,
-			FingerprintId: &fpId,
+			Fingerprint:   fp,
 			MatchAccuracy: new(int32(intro.Accuracy)),
 		})
 	}
 
 	for _, cred := range credits {
-		segData, err := ExtractSegment(fingerprint.End, cred.StartFirst, cred.StartFirst+cred.Duration)
+		fp, err := ExtractSegment(fingerprint.End, cred.StartFirst, cred.StartFirst+cred.Duration)
 		if err != nil {
 			slog.WarnContext(ctx, "failed to extract credits segment", "err", err)
-			continue
-		}
-
-		fpId, err := s.StoreChapterprint(ctx, segData)
-		if err != nil {
-			slog.WarnContext(ctx, "failed to store credits chapterprint", "err", err)
 			continue
 		}
 
@@ -211,7 +199,7 @@ func (s *MetadataService) matchByOverlap(
 			EndTime:       float32(endOffset + cred.StartFirst + cred.Duration),
 			Name:          "",
 			Type:          Credits,
-			FingerprintId: &fpId,
+			Fingerprint:   fp,
 			MatchAccuracy: new(int32(cred.Accuracy)),
 		})
 	}
@@ -234,10 +222,12 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 
 		merged := false
 		for i := range chapters {
-			if absF32(chapters[i].StartTime-cand.StartTime) < MergeWindowSec {
+			if absF32(chapters[i].StartTime-cand.StartTime) < MergeWindowSec &&
+				absF32(chapters[i].EndTime-cand.EndTime) < MergeWindowSec {
 				if chapters[i].Type == Content {
 					chapters[i].Type = cand.Type
 				}
+				chapters[i].Fingerprint = cand.Fingerprint
 				chapters[i].FingerprintId = cand.FingerprintId
 				chapters[i].MatchAccuracy = cand.MatchAccuracy
 				merged = true
@@ -246,12 +236,19 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 		}
 
 		if !merged {
+			if cand.StartTime < MergeWindowSec {
+				cand.StartTime = 0
+			}
+			if absF32(float32(info.Duration)-cand.EndTime) < MergeWindowSec {
+				cand.EndTime = float32(info.Duration)
+			}
 			chapters = insertChapter(chapters, Chapter{
 				Id:            info.Id,
 				StartTime:     cand.StartTime,
 				EndTime:       cand.EndTime,
 				Name:          "",
 				Type:          cand.Type,
+				Fingerprint:   cand.Fingerprint,
 				FingerprintId: cand.FingerprintId,
 				MatchAccuracy: cand.MatchAccuracy,
 			}, info.Duration)
@@ -340,6 +337,14 @@ func (s *MetadataService) saveChapters(ctx context.Context, infoId int32, chapte
 
 	// Insert new chapters
 	for _, c := range chapters {
+		if c.FingerprintId == nil && c.Fingerprint != nil {
+			fpId, err := s.StoreChapterprint(ctx, c.Fingerprint)
+			if err != nil {
+				slog.WarnContext(ctx, "failed to store intro chapterprint", "err", err)
+			} else {
+				c.FingerprintId = new(fpId)
+			}
+		}
 		_, err = tx.Exec(ctx,
 			`insert into gocoder.chapters(id, start_time, end_time, name, type, fingerprint_id, match_accuracy)
 			 values ($1, $2, $3, $4, $5, $6, $7)`,
