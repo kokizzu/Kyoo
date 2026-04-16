@@ -332,6 +332,12 @@ func (s *MetadataService) saveChapters(ctx context.Context, infoId int32, chapte
 				float64(c.StartTime)-c.FingerprintOffset,
 				float64(c.EndTime)-c.FingerprintOffset,
 			)
+			slog.InfoContext(
+				ctx,
+				"extracting chapterprint",
+				"start", float64(c.StartTime)-c.FingerprintOffset,
+				"end", float64(c.EndTime)-c.FingerprintOffset,
+			)
 			if err != nil {
 				slog.WarnContext(ctx, "failed to extract chapter segment", "err", err)
 				continue

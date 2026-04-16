@@ -2,6 +2,7 @@ package src
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/bits"
 )
@@ -33,6 +34,12 @@ const (
 	// Number of samples used in boundary refinement windows (~0.5 seconds).
 	// A smaller window gives sub-block precision while keeping noise low.
 	RefineWindowSize = 4
+
+	// Boundary refinement should be stricter than coarse block detection,
+	// otherwise short transitional content (speech/title cards) can be pulled
+	// into a matching run. Require both a higher score and sustained windows.
+	RefineThreshold          = 0.3
+	RefineConsecutiveWindows = 3
 )
 
 type Overlap struct {
@@ -180,6 +187,7 @@ func findMatchingRuns(fp1, fp2 []uint32, start1, start2 int) []Overlap {
 		hi := lo + CorrBlockSize
 		blockCorr[b] = segmentCorrelation(fp1[lo:hi], fp2[lo:hi])
 	}
+	fmt.Printf("bloc corr %v\n", blockCorr)
 
 	// Find contiguous runs of blocks above threshold.
 	var overlaps []Overlap
@@ -204,9 +212,11 @@ func findMatchingRuns(fp1, fp2 []uint32, start1, start2 int) []Overlap {
 
 		inRun = false
 		start := runStart * CorrBlockSize
-		end := b * CorrBlockSize
-		start, end = refineRunBounds(fp1, fp2, start, end)
+		// the current `b` doesn't match, don't include it.
+		// also remove the previous one to be sure we don't skip content.
+		end := (b - 2) * CorrBlockSize
 		if end-start >= minSamples {
+			// start, end = refineRunBounds(fp1, fp2, start, end)
 			corr := segmentCorrelation(fp1[start:end], fp2[start:end])
 			overlaps = append(overlaps, Overlap{
 				StartFirst:  samplesToSec(start1 + start),
@@ -223,6 +233,9 @@ func findMatchingRuns(fp1, fp2 []uint32, start1, start2 int) []Overlap {
 // refineRunBounds improves coarse block-aligned [start, end) boundaries
 // using short sample windows around each edge. It only scans ±1 block around
 // each edge, so the fast block-based pass remains the dominant cost.
+//
+// To avoid expanding runs into transitional content, refinement requires
+// a stricter per-window threshold and a short streak of consecutive windows.
 func refineRunBounds(fp1, fp2 []uint32, start, end int) (int, int) {
 	length := min(len(fp1), len(fp2))
 	window := RefineWindowSize
@@ -230,23 +243,36 @@ func refineRunBounds(fp1, fp2 []uint32, start, end int) (int, int) {
 	startSearchLo := max(0, start-CorrBlockSize)
 	startSearchHi := min(start+CorrBlockSize, length-window)
 	refinedStart := startSearchHi
+	streak := 0
 	for i := startSearchLo; i <= startSearchHi; i++ {
-		if segmentCorrelation(fp1[i:i+window], fp2[i:i+window]) >= MatchThreshold {
-			refinedStart = i
-			break
+		if segmentCorrelation(fp1[i:i+window], fp2[i:i+window]) >= RefineThreshold {
+			streak++
+			if streak >= RefineConsecutiveWindows {
+				refinedStart = i - streak + 1
+				break
+			}
+		} else {
+			streak = 0
 		}
 	}
 
 	endSearchLo := max(0, end-CorrBlockSize-window)
 	endSearchHi := min(end+CorrBlockSize-window, length-window)
 	refinedEnd := endSearchLo
+	streak = 0
 	for i := endSearchHi; i >= endSearchLo; i-- {
-		if segmentCorrelation(fp1[i:i+window], fp2[i:i+window]) >= MatchThreshold {
-			refinedEnd = i + window
-			break
+		if segmentCorrelation(fp1[i:i+window], fp2[i:i+window]) >= RefineThreshold {
+			streak++
+			if streak >= RefineConsecutiveWindows {
+				refinedEnd = i + window + streak - 1
+				break
+			}
+		} else {
+			streak = 0
 		}
 	}
 
+	fmt.Printf("before (%v, %v), after (%v, %v)\n", start, end, refinedStart, refinedEnd)
 	if refinedEnd <= refinedStart {
 		return start, end
 	}
