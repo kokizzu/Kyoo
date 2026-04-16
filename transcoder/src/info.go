@@ -11,6 +11,7 @@ import (
 	"mime"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -174,6 +175,26 @@ const (
 	Preview ChapterType = "preview"
 )
 
+// regex stolen from https://github.com/intro-skipper/intro-skipper/wiki/Chapter-Detection-Patterns
+var chapterTypePatterns = []struct {
+	kind    ChapterType
+	pattern *regexp.Regexp
+}{
+	{kind: Recap, pattern: regexp.MustCompile(`(?i)\b(re?cap|sum+ary|prev(ious(ly)?)?|(last|earlier)(\b\w+)?|catch\bup)\b`)},
+	{kind: Intro, pattern: regexp.MustCompile(`(?i)\b(intro|introduction|op|opening)\b`)},
+	{kind: Credits, pattern: regexp.MustCompile(`(?i)\b(credits?|ed|ending|outro)\b`)},
+	{kind: Preview, pattern: regexp.MustCompile(`(?i)\b(preview|pv|sneak\b?peek|coming\b?(up|soon)|next\b+(time|on|episode)|extra|teaser|trailer)\b`)},
+}
+
+func identifyChapterType(name string) ChapterType {
+	for _, matcher := range chapterTypePatterns {
+		if matcher.pattern.MatchString(name) {
+			return matcher.kind
+		}
+	}
+	return Content
+}
+
 func ParseFloat(str string) float32 {
 	f, err := strconv.ParseFloat(str, 32)
 	if err != nil {
@@ -327,8 +348,7 @@ func RetriveMediaInfo(ctx context.Context, path string, sha string) (*MediaInfo,
 				Name:      c.Title(),
 				StartTime: float32(c.StartTimeSeconds),
 				EndTime:   float32(c.EndTimeSeconds),
-				// TODO: detect content type
-				Type: Content,
+				Type:      identifyChapterType(c.Title()),
 			}
 		}),
 		Fonts: MapStream(mi.Streams, ffprobe.StreamAttachment, func(stream *ffprobe.Stream, i uint32) string {
