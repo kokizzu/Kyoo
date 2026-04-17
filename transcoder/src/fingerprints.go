@@ -101,6 +101,8 @@ func computeChromaprint(
 	args = append(args,
 		"-i", path,
 		"-ac", "2",
+		// this algorithm allows silence detection
+		"-algorithm", "3",
 		"-f", "chromaprint",
 		"-fp_format", "raw",
 		"-",
