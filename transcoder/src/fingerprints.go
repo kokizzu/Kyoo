@@ -154,37 +154,3 @@ func (s *MetadataService) DeleteFingerprint(ctx context.Context, infoID int32) e
 	)
 	return err
 }
-
-func (s *MetadataService) GetChapterprint(ctx context.Context, id int32) ([]uint32, error) {
-	var data string
-	err := s.Database.QueryRow(ctx,
-		`select data from gocoder.chapterprints where id = $1`,
-		id,
-	).Scan(&data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chapterprint %d: %w", id, err)
-	}
-
-	fingerprint, err := DecompressFingerprint(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decompress chapterprint %d: %w", id, err)
-	}
-	return fingerprint, nil
-}
-
-func (s *MetadataService) StoreChapterprint(ctx context.Context, fp []uint32) (int32, error) {
-	data, err := CompressFingerprint(fp)
-	if err != nil {
-		return 0, fmt.Errorf("failed to compress chapterprint: %w", err)
-	}
-
-	var id int32
-	err = s.Database.QueryRow(ctx,
-		`insert into gocoder.chapterprints(data) values ($1) returning id`,
-		data,
-	).Scan(&id)
-	if err != nil {
-		return 0, fmt.Errorf("failed to store chapterprint: %w", err)
-	}
-	return id, nil
-}

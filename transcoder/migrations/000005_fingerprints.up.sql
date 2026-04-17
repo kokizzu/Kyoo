@@ -8,12 +8,6 @@ create table gocoder.fingerprints(
 	end_data text not null
 );
 
-create table gocoder.chapterprints(
-	id serial primary key,
-	data text not null
-);
-
-alter table gocoder.chapters add column fingerprint_id integer references gocoder.chapterprints(id) on delete set null;
 alter table gocoder.chapters add column match_accuracy integer;
 
 commit;

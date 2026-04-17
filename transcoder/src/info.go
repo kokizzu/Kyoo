@@ -155,12 +155,6 @@ type Chapter struct {
 	Name string `json:"name" db:"name"`
 	/// The type value is used to mark special chapters (opening/credits...)
 	Type ChapterType `json:"type" db:"type"`
-	/// Reference to the chapterprint used for fingerprint matching.
-	FingerprintId *int32 `json:"-" db:"fingerprint_id"`
-	/// Only used internally, never fetched from db.
-	Fingerprint []uint32 `json:"-" db:"-"`
-	/// Only used internally, never fetched from db
-	FingerprintOffset float64 `json:"-" db:"-"`
 	/// Accuracy of the fingerprint match (0-100).
 	MatchAccuracy *int32 `json:"matchAccuracy,omitempty" db:"match_accuracy"`
 }

@@ -45,10 +45,6 @@ func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo,
 		return
 	}
 
-	if err := s.DeleteFingerprint(ctx, info.Id); err != nil {
-		slog.WarnContext(ctx, "failed to delete fingerprint", "path", info.Path, "err", err)
-	}
-
 	_, err = s.Database.Exec(ctx,
 		`update gocoder.info set ver_fingerprint = $2 where id = $1`,
 		info.Id, FingerprintVersion,
@@ -73,79 +69,6 @@ func (s *MetadataService) compareWithOther(
 		return nil, fmt.Errorf("failed to get metadata for %s: %w", otherPath, err)
 	}
 
-	hasChapterprints := false
-	for _, c := range otherInfo.Chapters {
-		if c.FingerprintId != nil {
-			hasChapterprints = true
-			break
-		}
-	}
-
-	if hasChapterprints {
-		return s.matchByChapterprints(ctx, info, fingerprint, otherInfo)
-	}
-
-	return s.matchByOverlap(ctx, info, fingerprint, otherInfo)
-}
-
-func (s *MetadataService) matchByChapterprints(
-	ctx context.Context,
-	info *MediaInfo,
-	fingerprint *Fingerprint,
-	otherInfo *MediaInfo,
-) ([]Chapter, error) {
-	var candidates []Chapter
-
-	for _, ch := range otherInfo.Chapters {
-		if ch.FingerprintId == nil {
-			continue
-		}
-		if ch.Type == Content {
-			continue
-		}
-
-		needle, err := s.GetChapterprint(ctx, *ch.FingerprintId)
-		if err != nil {
-			slog.WarnContext(ctx, "failed to get chapterprint", "chapterprintId", *ch.FingerprintId, "err", err)
-			continue
-		}
-
-		fp := fingerprint.Start
-		startOffset := 0.0
-		if ch.Type == Credits {
-			fp = fingerprint.End
-			startOffset = max(info.Duration-FpEndDuration, 0)
-		}
-
-		match, err := FpFindContain(ctx, fp, needle)
-		if err != nil {
-			slog.WarnContext(ctx, "failed to find chapterprint in fingerprint", "err", err)
-			continue
-		}
-		if match == nil {
-			continue
-		}
-
-		candidates = append(candidates, Chapter{
-			Id:            info.Id,
-			StartTime:     float32(startOffset + match.Start),
-			EndTime:       float32(startOffset + match.Start + match.Duration),
-			Name:          "",
-			Type:          ch.Type,
-			FingerprintId: ch.FingerprintId,
-			MatchAccuracy: new(int32(match.Accuracy)),
-		})
-	}
-
-	return candidates, nil
-}
-
-func (s *MetadataService) matchByOverlap(
-	ctx context.Context,
-	info *MediaInfo,
-	fingerprint *Fingerprint,
-	otherInfo *MediaInfo,
-) ([]Chapter, error) {
 	otherPrint, err := s.ComputeFingerprint(ctx, otherInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute fingerprint for %s: %w", otherInfo.Path, err)
@@ -173,7 +96,6 @@ func (s *MetadataService) matchByOverlap(
 			EndTime:       float32(intro.StartFirst + intro.Duration),
 			Name:          "",
 			Type:          Intro,
-			Fingerprint:   fingerprint.Start,
 			MatchAccuracy: new(int32(intro.Accuracy)),
 		})
 	}
@@ -182,14 +104,12 @@ func (s *MetadataService) matchByOverlap(
 		endOffset := info.Duration - samplesToSec(len(fingerprint.End))
 		slog.InfoContext(ctx, "Identified credits", "start", endOffset+cred.StartFirst, "duration", cred.Duration, "end_offset", endOffset)
 		candidates = append(candidates, Chapter{
-			Id:                info.Id,
-			StartTime:         float32(endOffset + cred.StartFirst),
-			EndTime:           float32(endOffset + cred.StartFirst + cred.Duration),
-			Name:              "",
-			Type:              Credits,
-			Fingerprint:       fingerprint.End,
-			FingerprintOffset: endOffset,
-			MatchAccuracy:     new(int32(cred.Accuracy)),
+			Id:            info.Id,
+			StartTime:     float32(endOffset + cred.StartFirst),
+			EndTime:       float32(endOffset + cred.StartFirst + cred.Duration),
+			Name:          "",
+			Type:          Credits,
+			MatchAccuracy: new(int32(cred.Accuracy)),
 		})
 	}
 
@@ -216,9 +136,6 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 				if chapters[i].Type == Content {
 					chapters[i].Type = cand.Type
 				}
-				chapters[i].Fingerprint = cand.Fingerprint
-				chapters[i].FingerprintOffset = cand.FingerprintOffset
-				chapters[i].FingerprintId = cand.FingerprintId
 				chapters[i].MatchAccuracy = cand.MatchAccuracy
 				merged = true
 				break
@@ -238,9 +155,6 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 				EndTime:           cand.EndTime,
 				Name:              "",
 				Type:              cand.Type,
-				Fingerprint:       cand.Fingerprint,
-				FingerprintOffset: cand.FingerprintOffset,
-				FingerprintId:     cand.FingerprintId,
 				MatchAccuracy:     cand.MatchAccuracy,
 			}, info.Duration)
 		}
@@ -326,34 +240,10 @@ func (s *MetadataService) saveChapters(ctx context.Context, infoId int32, chapte
 	}
 
 	for _, c := range chapters {
-		if c.FingerprintId == nil && c.Fingerprint != nil {
-			fp, err := ExtractSegment(
-				c.Fingerprint,
-				float64(c.StartTime)-c.FingerprintOffset,
-				float64(c.EndTime)-c.FingerprintOffset,
-			)
-			slog.InfoContext(
-				ctx,
-				"extracting chapterprint",
-				"start", float64(c.StartTime)-c.FingerprintOffset,
-				"end", float64(c.EndTime)-c.FingerprintOffset,
-			)
-			if err != nil {
-				slog.WarnContext(ctx, "failed to extract chapter segment", "err", err)
-				continue
-			}
-
-			fpId, err := s.StoreChapterprint(ctx, fp)
-			if err != nil {
-				slog.WarnContext(ctx, "failed to store intro chapterprint", "err", err)
-			} else {
-				c.FingerprintId = new(fpId)
-			}
-		}
 		_, err = tx.Exec(ctx,
-			`insert into gocoder.chapters(id, start_time, end_time, name, type, fingerprint_id, match_accuracy)
-			 values ($1, $2, $3, $4, $5, $6, $7)`,
-			infoId, c.StartTime, c.EndTime, c.Name, c.Type, c.FingerprintId, c.MatchAccuracy,
+			`insert into gocoder.chapters(id, start_time, end_time, name, type, match_accuracy)
+			 values ($1, $2, $3, $4, $5, $6)`,
+			infoId, c.StartTime, c.EndTime, c.Name, c.Type, c.MatchAccuracy,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert chapter: %w", err)

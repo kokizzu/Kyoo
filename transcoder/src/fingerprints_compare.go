@@ -242,22 +242,3 @@ func FpFindOverlap(ctx context.Context, fp1 []uint32, fp2 []uint32) ([]Overlap, 
 	runs := findMatchingRuns(a1, a2, s1, s2)
 	return runs, nil
 }
-
-func FpFindContain(ctx context.Context, haystack []uint32, needle []uint32) (*Match, error) {
-	offset := findBestOffset(ctx, haystack, needle)
-	if offset == nil || *offset < 0 || *offset+len(needle) < len(haystack) {
-		return nil, nil
-	}
-
-	corr := segmentCorrelation(haystack[*offset:*offset+len(needle)], needle)
-	if corr < MatchThreshold {
-		return nil, nil
-	}
-
-	accuracy := min(int(corr*100), 100)
-	return &Match{
-		Start:    samplesToSec(*offset),
-		Duration: samplesToSec(len(needle)),
-		Accuracy: accuracy,
-	}, nil
-}

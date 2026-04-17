@@ -75,22 +75,3 @@ func DecompressFingerprint(compressed string) ([]uint32, error) {
 
 	return result, nil
 }
-
-func ExtractSegment(fp []uint32, startSec, endSec float64) ([]uint32, error) {
-	startIdx := secToSamples(startSec)
-	endIdx := secToSamples(endSec)
-
-	if startIdx < 0 {
-		startIdx = 0
-	}
-	if endIdx > len(fp) {
-		endIdx = len(fp)
-	}
-	if startIdx >= endIdx {
-		return nil, fmt.Errorf("invalid segment range: %f-%f", startSec, endSec)
-	}
-
-	segment := make([]uint32, endIdx-startIdx)
-	copy(segment, fp[startIdx:endIdx])
-	return segment, nil
-}
