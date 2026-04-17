@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { View } from "react-native";
 import { useEvent, type VideoPlayer } from "react-native-video";
 import type { Chapter } from "~/models";
-import { P, Sprite } from "~/primitives";
+import { P, Sprite, SubP } from "~/primitives";
 import { useToken } from "~/providers/account-context";
 import { type QueryIdentifier, useFetch } from "~/query";
 import { useQueryState } from "~/utils";
 import { toTimerString } from "./controls/progress";
+import { useTranslation } from "react-i18next";
 
 type Thumb = {
 	from: number;
@@ -95,6 +96,7 @@ export const ScrubberTooltip = ({
 	seconds: number;
 }) => {
 	const { info, stats } = useScrubber(videoSlug);
+	const { t } = useTranslation();
 
 	const current =
 		info.findLast((x) => x.from <= seconds * 1000 && seconds * 1000 < x.to) ??
@@ -118,8 +120,11 @@ export const ScrubberTooltip = ({
 				/>
 			)}
 			<P className="text-center">
-				{toTimerString(seconds)} {chapter && `- ${chapter.name}`}
+				{toTimerString(seconds)} {chapter?.name && `- ${chapter.name}`}
 			</P>
+			{chapter && chapter.type !== "content" && (
+				<SubP>{t(`player.chapters.${chapter.type}`)}</SubP>
+			)}
 		</View>
 	);
 };
@@ -135,6 +140,7 @@ export const BottomScrubber = ({
 }) => {
 	const [slug] = useQueryState<string>("slug", undefined!);
 	const { info, stats } = useScrubber(slug);
+	const { t } = useTranslation();
 
 	const [duration, setDuration] = useState(player.duration);
 	useEvent(player, "onLoad", (info) => {
@@ -177,6 +183,9 @@ export const BottomScrubber = ({
 					{toTimerString(seek)}
 					{chapter && `\n${chapter.name}`}
 				</P>
+				{chapter && chapter.type !== "content" && (
+					<SubP>{t(`player.chapters.${chapter.type}`)}</SubP>
+				)}
 			</View>
 		</View>
 	);

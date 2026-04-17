@@ -257,10 +257,13 @@
 		"not-available": "{{entry}} is not available on kyoo yet, ask your server admins about it",
 		"fatal": "Fatal playback error",
 		"entry-list": "Entry list",
-		"skip-intro": "Skip intro",
-		"skip-credits": "Skip credits",
-		"skip-recap": "Skip recap",
-		"skip-preview": "Skip preview"
+		"chapters": {
+			"skip": "Skip {{type}}",
+			"intro": "intro",
+			"credits": "credits",
+			"recap": "recap",
+			"preview": "preview"
+		}
 	},
 	"search": {
 		"empty": "No result found. Try a different query."

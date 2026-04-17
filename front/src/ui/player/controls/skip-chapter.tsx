@@ -41,7 +41,7 @@ export const SkipChapterButton = ({
 
 	return (
 		<Button
-			text={t(`player.skip-${chapter.type}`)}
+			text={t(`player.chapters.skip`, { type: chapter.type })}
 			onPress={() => {
 				if (data?.durationSeconds && data.durationSeconds <= chapter.endTime) {
 					return seekEnd();
