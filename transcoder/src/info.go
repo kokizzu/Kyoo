@@ -158,7 +158,7 @@ type Chapter struct {
 	/// The type value is used to mark special chapters (opening/credits...)
 	Type ChapterType `json:"type" db:"type"`
 	// true only for introductions where the audio track is new (first time we'we heard this one in the serie)
-	FirstAppearance *bool `json:"firstAppearance" db:"first_appearance"`
+	FirstAppearance *bool `json:"firstAppearance,omitempty" db:"first_appearance"`
 	/// Accuracy of the fingerprint match (0-100).
 	MatchAccuracy *int32 `json:"matchAccuracy,omitempty" db:"match_accuracy"`
 }

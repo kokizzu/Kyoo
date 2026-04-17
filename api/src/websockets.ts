@@ -67,7 +67,7 @@ const actionMap = {
 					logger.info("No next video to prepare for ${slug}", {
 						slug: vid.path,
 					});
-					return
+					return;
 				}
 				await prepareVideo(next, ws.data.headers.authorization!);
 			}

@@ -1,5 +1,14 @@
 import { z } from "zod/v4";
 
+const ChapterSkipBehavior = z
+	.enum([
+		"autoSkip",
+		"autoSkipExceptFirstAppearance",
+		"showSkipButton",
+		"disabled",
+	])
+	.catch("showSkipButton");
+
 export const User = z
 	.object({
 		id: z.string(),
@@ -28,11 +37,30 @@ export const User = z
 						.catch("original"),
 					audioLanguage: z.string().catch("default"),
 					subtitleLanguage: z.string().nullable().catch(null),
+					chapterSkip: z
+						.object({
+							recap: ChapterSkipBehavior,
+							intro: ChapterSkipBehavior,
+							credits: ChapterSkipBehavior,
+							preview: ChapterSkipBehavior,
+						})
+						.catch({
+							recap: "showSkipButton",
+							intro: "showSkipButton",
+							credits: "showSkipButton",
+							preview: "showSkipButton",
+						}),
 				})
 				.default({
 					downloadQuality: "original",
 					audioLanguage: "default",
 					subtitleLanguage: null,
+					chapterSkip: {
+						recap: "showSkipButton",
+						intro: "showSkipButton",
+						credits: "showSkipButton",
+						preview: "showSkipButton",
+					},
 				}),
 		}),
 		oidc: z

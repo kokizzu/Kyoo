@@ -188,6 +188,27 @@
 				"label": "Subtitle language",
 				"description": "The default subtitle language used",
 				"none": "None"
+			},
+			"chapterSkip": {
+				"label": "Chapter skip",
+				"behaviors": {
+					"autoSkip": "Auto skip",
+					"autoSkipExceptFirstAppearance": "Auto skip except first appearance",
+					"showSkipButton": "Show skip button",
+					"disabled": "Do nothing"
+				},
+				"types": {
+					"recap": "Recap",
+					"intro": "Intro",
+					"credits": "Credits",
+					"preview": "Preview"
+				},
+				"descriptions": {
+					"recap": "Control what happens when a recap chapter starts",
+					"intro": "Control what happens when an intro chapter starts",
+					"credits": "Control what happens when a credits chapter starts",
+					"preview": "Control what happens when a preview chapter starts"
+				}
 			}
 		},
 		"account": {

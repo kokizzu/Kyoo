@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useEvent, type VideoPlayer } from "react-native-video";
 import type { Chapter } from "~/models";
@@ -7,7 +8,6 @@ import { useToken } from "~/providers/account-context";
 import { type QueryIdentifier, useFetch } from "~/query";
 import { useQueryState } from "~/utils";
 import { toTimerString } from "./controls/progress";
-import { useTranslation } from "react-i18next";
 
 type Thumb = {
 	from: number;
