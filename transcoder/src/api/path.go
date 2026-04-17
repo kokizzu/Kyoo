@@ -11,7 +11,10 @@ import (
 )
 
 func getPath(c *echo.Context) (string, string, error) {
-	key := c.Param("path")
+	return getPathS(c.Param("path"))
+}
+
+func getPathS(key string) (string, string, error) {
 	if key == "" {
 		return "", "", echo.NewHTTPError(http.StatusBadRequest, "Missing resouce path.")
 	}

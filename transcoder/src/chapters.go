@@ -15,43 +15,46 @@ const (
 	MergeWindowSec float32 = 3.0
 )
 
-func (s *MetadataService) IdentifyChapters(ctx context.Context, info *MediaInfo, nearEpisodes []string) {
+func (s *MetadataService) IdentifyChapters(
+	ctx context.Context,
+	info *MediaInfo,
+	prev string,
+	next string,
+) error {
 	defer utils.PrintExecTime(ctx, "identify chapters for %s", info.Path)()
-
-	if info.Versions.Fingerprint >= FingerprintVersion {
-		return
-	}
 
 	fingerprint, err := s.ComputeFingerprint(ctx, info)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to compute fingerprint", "path", info.Path, "err", err)
-		return
+		return err
 	}
 
 	candidates := make([]Chapter, 0)
 
-	for _, otherPath := range nearEpisodes {
-		otherCandidates, err := s.compareWithOther(ctx, info, fingerprint, otherPath)
+	for _, otherPath := range []string{prev, next} {
+		if otherPath == "" {
+			continue
+		}
+		nc, err := s.compareWithOther(ctx, info, fingerprint, otherPath)
 		if err != nil {
 			slog.WarnContext(ctx, "failed to compare episodes", "path", info.Path, "otherPath", otherPath, "err", err)
 			continue
 		}
-		candidates = append(candidates, otherCandidates...)
+		if otherPath == next {
+			for i := range nc {
+				nc[i].FirstAppearance = new(true)
+			}
+		}
+		candidates = append(candidates, nc...)
 	}
 
 	chapters := mergeChapters(info, candidates)
-	if err := s.saveChapters(ctx, info.Id, chapters); err != nil {
-		slog.ErrorContext(ctx, "failed to save chapters", "path", info.Path, "err", err)
-		return
-	}
-
-	_, err = s.Database.Exec(ctx,
-		`update gocoder.info set ver_fingerprint = $2 where id = $1`,
-		info.Id, FingerprintVersion,
-	)
+	err = s.saveChapters(ctx, info.Id, chapters)
 	if err != nil {
-		slog.ErrorContext(ctx, "failed to update fingerprint version", "path", info.Path, "err", err)
+		slog.ErrorContext(ctx, "failed to save chapters", "path", info.Path, "err", err)
+		return err
 	}
+	return nil
 }
 
 func (s *MetadataService) compareWithOther(
@@ -121,8 +124,13 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 		return info.Chapters
 	}
 
-	chapters := make([]Chapter, len(info.Chapters))
-	copy(chapters, info.Chapters)
+	chapters := make([]Chapter, 0, len(info.Chapters))
+	for _, c := range info.Chapters {
+		// ignore pre-generated chapters
+		if c.Name != "" {
+			chapters = append(chapters, c)
+		}
+	}
 
 	for _, cand := range candidates {
 		if cand.Type == Content {
@@ -136,7 +144,15 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 				if chapters[i].Type == Content {
 					chapters[i].Type = cand.Type
 				}
-				chapters[i].MatchAccuracy = cand.MatchAccuracy
+				if chapters[i].MatchAccuracy != nil {
+					chapters[i].MatchAccuracy = new(max(*chapters[i].MatchAccuracy, *cand.MatchAccuracy))
+				} else {
+					chapters[i].MatchAccuracy = cand.MatchAccuracy
+					chapters[i].FirstAppearance = cand.FirstAppearance
+				}
+				if chapters[i].Name != "" {
+					chapters[i].FirstAppearance = cand.FirstAppearance
+				}
 				merged = true
 				break
 			}
@@ -150,12 +166,13 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 				cand.EndTime = float32(info.Duration)
 			}
 			chapters = insertChapter(chapters, Chapter{
-				Id:                info.Id,
-				StartTime:         cand.StartTime,
-				EndTime:           cand.EndTime,
-				Name:              "",
-				Type:              cand.Type,
-				MatchAccuracy:     cand.MatchAccuracy,
+				Id:              info.Id,
+				StartTime:       cand.StartTime,
+				EndTime:         cand.EndTime,
+				Name:            "",
+				Type:            cand.Type,
+				MatchAccuracy:   cand.MatchAccuracy,
+				FirstAppearance: cand.FirstAppearance,
 			}, info.Duration)
 		}
 	}
@@ -241,9 +258,9 @@ func (s *MetadataService) saveChapters(ctx context.Context, infoId int32, chapte
 
 	for _, c := range chapters {
 		_, err = tx.Exec(ctx,
-			`insert into gocoder.chapters(id, start_time, end_time, name, type, match_accuracy)
-			 values ($1, $2, $3, $4, $5, $6)`,
-			infoId, c.StartTime, c.EndTime, c.Name, c.Type, c.MatchAccuracy,
+			`insert into gocoder.chapters(id, start_time, end_time, name, type, match_accuracy, first_appearance)
+			 values ($1, $2, $3, $4, $5, $6, $7)`,
+			infoId, c.StartTime, c.EndTime, c.Name, c.Type, c.MatchAccuracy, c.FirstAppearance,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert chapter: %w", err)

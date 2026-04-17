@@ -8,6 +8,7 @@ import { entries, entryVideoJoin, videos } from "~/db/schema";
 import { KError } from "~/models/error";
 import { isUuid } from "~/models/utils";
 import { Video } from "~/models/video";
+import { toQueryStr } from "~/utils";
 
 const logger = getLogger();
 
@@ -196,7 +197,8 @@ export const videosMetadata = new Elysia({
 		":id/prepare",
 		async ({ params: { id }, headers: { authorization }, status }) => {
 			const ret = await prepareVideo(id, authorization!);
-			if (ret) return status(ret.status, ret);
+			if ("kyoo" in ret) return status(ret.status, ret as any);
+			return { status: ret.status, body: await ret.json() };
 		},
 		{
 			detail: { description: "Prepare a video for playback" },
@@ -207,7 +209,7 @@ export const videosMetadata = new Elysia({
 				}),
 			}),
 			response: {
-				302: t.Void({
+				200: t.Any({
 					description:
 						"Prepare said video for playback (compute everything possible and cache it)",
 				}),
@@ -230,6 +232,7 @@ export const prepareVideo = async (slug: string, auth: string) => {
 
 	if (!vid) {
 		return {
+			kyoo: true,
 			status: 404,
 			message: `No video found with slug ${slug}`,
 		} as const;
@@ -245,19 +248,22 @@ export const prepareVideo = async (slug: string, auth: string) => {
 				.orderBy(entries.order)
 		: [];
 	const idx = related.findIndex((x) => x.order === vid.order);
-	const near = [related[idx - 1], related[idx + 1]]
-		.filter((x) => x)
-		.map((x) => x.path);
+	const prev = related[idx - 1]?.path;
+	const next = related[idx + 1]?.path;
 
 	logger.info("Preparing next video {slug} (near episodes: {near})", {
 		slug,
-		near,
+		near: [prev, next],
 	});
 
 	const path = Buffer.from(vid.path, "utf8").toString("base64url");
-	await fetch(
+	const params = {
+		prev: prev ? Buffer.from(prev, "utf8").toString("base64url") : null,
+		next: next ? Buffer.from(next, "utf8").toString("base64url") : null,
+	};
+	return await fetch(
 		new URL(
-			`/video/${path}/prepare`,
+			`/video/${path}/prepare${toQueryStr(params)}`,
 			process.env.TRANSCODER_SERVER ?? "http://transcoder:7666",
 		),
 		{
@@ -265,10 +271,6 @@ export const prepareVideo = async (slug: string, auth: string) => {
 				authorization: auth,
 				"content-type": "application/json",
 			},
-			method: "POST",
-			body: JSON.stringify({
-				nearEpisodes: near,
-			}),
 		},
 	);
 };

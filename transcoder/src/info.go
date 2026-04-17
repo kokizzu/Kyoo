@@ -30,6 +30,8 @@ type Versions struct {
 	Thumbs      int32 `json:"thumbs" db:"ver_thumbs"`
 	Keyframes   int32 `json:"keyframes" db:"ver_keyframes"`
 	Fingerprint int32 `json:"fingerprint" db:"ver_fingerprint"`
+	/// List of sha this was fingerprinted with
+	FpWith []string `json:"fpWith" db:"ver_fp_with"`
 }
 
 type MediaInfo struct {
@@ -155,6 +157,8 @@ type Chapter struct {
 	Name string `json:"name" db:"name"`
 	/// The type value is used to mark special chapters (opening/credits...)
 	Type ChapterType `json:"type" db:"type"`
+	// true only for introductions where the audio track is new (first time we'we heard this one in the serie)
+	FirstAppearance *bool `json:"firstAppearance" db:"first_appearance"`
 	/// Accuracy of the fingerprint match (0-100).
 	MatchAccuracy *int32 `json:"matchAccuracy,omitempty" db:"match_accuracy"`
 }

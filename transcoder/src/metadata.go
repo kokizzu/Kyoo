@@ -209,7 +209,8 @@ func (s *MetadataService) getMetadata(ctx context.Context, path string, sha stri
 				'extract', i.ver_extract,
 				'thumbs', i.ver_thumbs,
 				'keyframes', i.ver_keyframes,
-				'fingerprint', i.ver_fingerprint
+				'fingerprint', i.ver_fingerprint,
+				'fpWith', i.ver_fp_with
 			) as versions
 		from gocoder.info as i
 		where i.sha=$1 limit 1`,
@@ -297,7 +298,7 @@ func (s *MetadataService) storeFreshMetadata(ctx context.Context, path string, s
 		return set(ret, err)
 	}
 
-	// it needs to be a delete instead of a on conflict do update because we want to trigger delete casquade for
+	// it needs to be a delete instead of a on conflict do update because we want to trigger delete cascade for
 	// videos/audios & co.
 	tx.Exec(ctx, `delete from gocoder.info where path = $1`, path)
 	err = tx.QueryRow(ctx,

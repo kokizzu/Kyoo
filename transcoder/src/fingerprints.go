@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/zoriya/kyoo/transcoder/src/exec"
@@ -24,33 +25,35 @@ type Fingerprint struct {
 }
 
 func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInfo) (*Fingerprint, error) {
+	if info.Versions.Fingerprint == FingerprintVersion {
+		var startData string
+		var endData string
+		err := s.Database.QueryRow(ctx,
+			`select start_data, end_data from gocoder.fingerprints where id = $1`,
+			info.Id,
+		).Scan(&startData, &endData)
+		if err == nil {
+			startFingerprint, err := DecompressFingerprint(startData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decompress start fingerprint: %w", err)
+			}
+			endFingerprint, err := DecompressFingerprint(endData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decompress end fingerprint: %w", err)
+			}
+			return &Fingerprint{
+				Start: startFingerprint,
+				End:   endFingerprint,
+			}, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to query fingerprint: %w", err)
+		}
+	}
+
 	get_running, set := s.fingerprintLock.Start(info.Sha)
 	if get_running != nil {
 		return get_running()
-	}
-
-	var startData string
-	var endData string
-	err := s.Database.QueryRow(ctx,
-		`select start_data, end_data from gocoder.fingerprints where id = $1`,
-		info.Id,
-	).Scan(&startData, &endData)
-	if err == nil {
-		startFingerprint, err := DecompressFingerprint(startData)
-		if err != nil {
-			return set(nil, fmt.Errorf("failed to decompress start fingerprint: %w", err))
-		}
-		endFingerprint, err := DecompressFingerprint(endData)
-		if err != nil {
-			return set(nil, fmt.Errorf("failed to decompress end fingerprint: %w", err))
-		}
-		return set(&Fingerprint{
-			Start: startFingerprint,
-			End:   endFingerprint,
-		}, nil)
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return set(nil, fmt.Errorf("failed to query fingerprint: %w", err))
 	}
 
 	defer utils.PrintExecTime(ctx, "chromaprint for %s", info.Path)()
@@ -72,6 +75,15 @@ func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInf
 	)
 	if err != nil {
 		return set(nil, fmt.Errorf("failed to compute end fingerprint: %w", err))
+	}
+
+	_, err = s.Database.Exec(ctx,
+		`update gocoder.info set ver_fingerprint = $2 where id = $1`,
+		info.Id,
+		FingerprintVersion,
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to update fingerprint version", "path", info.Path, "err", err)
 	}
 
 	return set(&Fingerprint{
@@ -143,14 +155,6 @@ func (s *MetadataService) StoreFingerprint(ctx context.Context, infoID int32, fi
 		`insert into gocoder.fingerprints(id, start_data, end_data) values ($1, $2, $3)
 		 on conflict (id) do update set start_data = excluded.start_data, end_data = excluded.end_data`,
 		infoID, startCompressed, endCompressed,
-	)
-	return err
-}
-
-func (s *MetadataService) DeleteFingerprint(ctx context.Context, infoID int32) error {
-	_, err := s.Database.Exec(ctx,
-		`delete from gocoder.fingerprints where id = $1`,
-		infoID,
 	)
 	return err
 }
