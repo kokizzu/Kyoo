@@ -1,18 +1,27 @@
 import Admin from "@material-symbols/svg-400/rounded/admin_panel_settings.svg";
 import Register from "@material-symbols/svg-400/rounded/app_registration.svg";
+import Browse from "@material-symbols/svg-400/rounded/browse-fill.svg";
 import Close from "@material-symbols/svg-400/rounded/close.svg";
 import Login from "@material-symbols/svg-400/rounded/login.svg";
 import Logout from "@material-symbols/svg-400/rounded/logout.svg";
+import Person from "@material-symbols/svg-400/rounded/person-fill.svg";
 import Search from "@material-symbols/svg-400/rounded/search-fill.svg";
 import Settings from "@material-symbols/svg-400/rounded/settings.svg";
 import { useIsFocused } from "@react-navigation/native";
 import { useNavigation, usePathname, useRouter } from "expo-router";
 import KyooLongLogo from "public/icon-long.svg";
-import { type ComponentProps, useLayoutEffect, useRef, useState } from "react";
+import {
+	type ComponentProps,
+	type ComponentType,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
 	Platform,
 	type PressableProps,
+	Text,
 	TextInput,
 	type TextInputProps,
 	View,
@@ -30,7 +39,7 @@ import {
 	A,
 	Avatar,
 	HR,
-	HRP,
+	Icon,
 	IconButton,
 	Menu,
 	PressableFeedback,
@@ -48,19 +57,50 @@ export const NavbarLeft = () => {
 	return (
 		<View className="flex-row items-center gap-4">
 			<NavbarTitle />
-			<A
-				href="/browse"
-				className="font-headers text-lg text-slate-200 uppercase dark:text-slate-200"
-			>
-				{t("navbar.browse")}
-			</A>
-			<A
+			<NavbarLink href="/browse" label={t("navbar.browse")} icon={Browse} />
+			<NavbarLink
 				href="/profiles/me"
-				className="font-headers text-lg text-slate-200 uppercase dark:text-slate-200"
-			>
-				{t("navbar.profile")}
-			</A>
+				label={t("navbar.profile")}
+				icon={Person}
+			/>
+			<Menu Trigger={NavbarLink} label={t("navbar.admin")} icon={Admin}>
+				<Menu.Item
+					label={t("admin.unmatched.label")}
+					icon={Search}
+					href="/unmatched"
+				/>
+				<Menu.Item label="Users" icon={Admin} href="/admin/users" />
+			</Menu>
 		</View>
+	);
+};
+
+const NavbarLink = <AsProps = ComponentProps<typeof A>>({
+	as,
+	label,
+	icon,
+	...props
+}: {
+	as?: ComponentType<AsProps>;
+	label: string;
+	icon: ComponentProps<typeof Icon>["icon"];
+} & AsProps) => {
+	const As = as ?? A;
+	return (
+		<As
+			aria-label={label}
+			className="items-center justify-center"
+			{...tooltip(label)}
+			{...props as any}
+		>
+			<Icon
+				icon={icon}
+				className="fill-slate-200 sm:hidden dark:fill-slate-200"
+			/>
+			<Text className="font-headers text-lg text-slate-200 uppercase max-sm:hidden dark:text-slate-200">
+				{label}
+			</Text>
+		</As>
 	);
 };
 
@@ -258,17 +298,6 @@ export const NavbarProfile = () => {
 						icon={Logout}
 						onSelect={logout}
 					/>
-				</>
-			)}
-			{account?.isAdmin && (
-				<>
-					<HRP text={t("navbar.admin")} />
-					<Menu.Item
-						label={t("admin.unmatched.label")}
-						icon={Search}
-						href="/unmatched"
-					/>
-					<Menu.Item label="Users" icon={Admin} href="/admin/users" />
 				</>
 			)}
 		</Menu>
