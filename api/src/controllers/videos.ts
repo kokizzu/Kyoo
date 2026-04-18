@@ -204,7 +204,8 @@ const videoRelations = {
 						.select({ pk: entries.showPk })
 						.from(entries)
 						.innerJoin(entryVideoJoin, eq(entryVideoJoin.entryPk, entries.pk))
-						.where(eq(videos.pk, entryVideoJoin.videoPk)),
+						.where(eq(videos.pk, entryVideoJoin.videoPk))
+						.limit(1),
 				),
 			)
 			.limit(1)

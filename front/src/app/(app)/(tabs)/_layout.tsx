@@ -1,12 +1,7 @@
-import Browse from "@material-symbols/svg-400/rounded/browse-fill.svg";
-// import Downloading from "@material-symbols/svg-400/rounded/downloading-fill.svg";
-import Home from "@material-symbols/svg-400/rounded/home-fill.svg";
-import Person from "@material-symbols/svg-400/rounded/person-fill.svg";
-import { Slot, Tabs } from "expo-router";
+import { Slot } from "expo-router";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useTranslation } from "react-i18next";
 import { Platform } from "react-native";
-import { Icon } from "~/primitives";
-import { cn } from "~/utils";
 
 export const unstable_settings = {
 	initialRouteName: "index",
@@ -18,49 +13,39 @@ export default function TabsLayout() {
 	if (Platform.OS === "web") return <Slot />;
 
 	return (
-		<Tabs
-			screenOptions={{
-				headerShown: false,
-			}}
-		>
-			<Tabs.Screen
-				name="index"
-				options={{
-					tabBarLabel: t("navbar.home"),
-					tabBarIcon: ({ focused }) => {
-						return (
-							<Icon
-								icon={Home}
-								className={cn(focused && "fill-accent dark:fill-accent")}
-							/>
-						);
-					},
-				}}
-			/>
-			<Tabs.Screen
-				name="browse"
-				options={{
-					tabBarLabel: t("navbar.browse"),
-					tabBarIcon: ({ focused }) => (
-						<Icon
-							icon={Browse}
-							className={cn(focused && "fill-accent dark:fill-accent")}
-						/>
-					),
-				}}
-			/>
-			<Tabs.Screen
-				name="profile"
-				options={{
-					tabBarLabel: t("navbar.profile"),
-					tabBarIcon: ({ focused }) => (
-						<Icon
-							icon={Person}
-							className={cn(focused && "fill-accent dark:fill-accent")}
-						/>
-					),
-				}}
-			/>
-		</Tabs>
+		<NativeTabs>
+			<NativeTabs.Trigger name="index">
+				<NativeTabs.Trigger.Icon
+					sf={{ default: "house", selected: "house.fill" }}
+					md="home"
+				/>
+				<NativeTabs.Trigger.Label>{t("navbar.home")}</NativeTabs.Trigger.Label>
+			</NativeTabs.Trigger>
+			<NativeTabs.Trigger name="browse">
+				<NativeTabs.Trigger.Icon
+					sf={{ default: "square.grid.2x2", selected: "square.grid.2x2.fill" }}
+					md="browse"
+				/>
+				<NativeTabs.Trigger.Label>
+					{t("navbar.browse")}
+				</NativeTabs.Trigger.Label>
+			</NativeTabs.Trigger>
+			<NativeTabs.Trigger name="profile">
+				<NativeTabs.Trigger.Icon
+					sf={{ default: "person", selected: "person.fill" }}
+					md="person"
+				/>
+				<NativeTabs.Trigger.Label>
+					{t("navbar.profile")}
+				</NativeTabs.Trigger.Label>
+			</NativeTabs.Trigger>
+			<NativeTabs.Trigger name="admin">
+				<NativeTabs.Trigger.Icon
+					sf={{ default: "person.3", selected: "person.3.fill" }}
+					md="admin_panel_settings"
+				/>
+				<NativeTabs.Trigger.Label>{t("navbar.admin")}</NativeTabs.Trigger.Label>
+			</NativeTabs.Trigger>
+		</NativeTabs>
 	);
 }
