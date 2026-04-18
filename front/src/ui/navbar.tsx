@@ -67,7 +67,7 @@ export const NavbarLeft = () => {
 				<Menu.Item
 					label={t("admin.unmatched.label")}
 					icon={Search}
-					href="/unmatched"
+					href="/admin/unmatched"
 				/>
 				<Menu.Item label="Users" icon={Admin} href="/admin/users" />
 			</Menu>
@@ -91,7 +91,7 @@ const NavbarLink = <AsProps = ComponentProps<typeof A>>({
 			aria-label={label}
 			className="items-center justify-center"
 			{...tooltip(label)}
-			{...props as any}
+			{...(props as any)}
 		>
 			<Icon
 				icon={icon}

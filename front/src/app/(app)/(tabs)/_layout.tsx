@@ -39,6 +39,13 @@ export default function TabsLayout() {
 					{t("navbar.profile")}
 				</NativeTabs.Trigger.Label>
 			</NativeTabs.Trigger>
+			<NativeTabs.Trigger name="admin">
+				<NativeTabs.Trigger.Icon
+					sf={{ default: "person.3", selected: "person.3.fill" }}
+					md="admin_panel_settings"
+				/>
+				<NativeTabs.Trigger.Label>{t("navbar.admin")}</NativeTabs.Trigger.Label>
+			</NativeTabs.Trigger>
 		</NativeTabs>
 	);
 }
