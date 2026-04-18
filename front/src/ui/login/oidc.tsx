@@ -55,5 +55,5 @@ export const OidcLogin = ({ apiUrl }: { apiUrl: string }) => {
 OidcLogin.query = (apiUrl?: string): QueryIdentifier<AuthInfo> => ({
 	path: ["auth", "info"],
 	parser: AuthInfo,
-	options: { apiUrl },
+	options: { apiUrl, returnError: true },
 });
