@@ -1,6 +1,10 @@
-import SubtitleLanguage from "@material-symbols/svg-400/rounded/closed_caption-fill.svg";
-import PlayModeI from "@material-symbols/svg-400/rounded/display_settings-fill.svg";
-import AudioLanguage from "@material-symbols/svg-400/rounded/music_note-fill.svg";
+import SubtitleLanguage from "@material-symbols/svg-400/rounded/closed_caption.svg";
+import PlayModeI from "@material-symbols/svg-400/rounded/display_settings.svg";
+import MovieInfo from "@material-symbols/svg-400/rounded/movie_info.svg";
+import AudioLanguage from "@material-symbols/svg-400/rounded/music_note.svg";
+import PlayArrow from "@material-symbols/svg-400/rounded/play_arrow.svg";
+import Replay from "@material-symbols/svg-400/rounded/replay.svg";
+import Theaters from "@material-symbols/svg-400/rounded/theaters.svg";
 import langmap from "langmap";
 import { useTranslation } from "react-i18next";
 import { Select } from "~/primitives";
@@ -82,6 +86,65 @@ export const PlaybackSettings = () => {
 					}
 				/>
 			</Preference>
+		</SettingsContainer>
+	);
+};
+
+const defaultChapterSkipBehaviors = [
+	"autoSkip",
+	"showSkipButton",
+	"disabled",
+] as const;
+
+const introCreditsChapterSkipBehaviors = [
+	"autoSkip",
+	"autoSkipExceptFirstAppearance",
+	"showSkipButton",
+	"disabled",
+] as const;
+
+const chapterTypes = [
+	{ type: "recap", icon: Replay },
+	{ type: "intro", icon: PlayArrow },
+	{ type: "credits", icon: Theaters },
+	{ type: "preview", icon: MovieInfo },
+] as const;
+
+export const ChapterSkipSettings = () => {
+	const { t } = useTranslation();
+	const [chapterSkip, setChapterSkip] = useSetting("chapterSkip")!;
+
+	return (
+		<SettingsContainer title={t("settings.playback.chapterSkip.label")}>
+			{chapterTypes.map(({ type, icon }) => {
+				const values =
+					type === "intro" || type === "credits"
+						? introCreditsChapterSkipBehaviors
+						: defaultChapterSkipBehaviors;
+
+				return (
+					<Preference
+						key={type}
+						icon={icon}
+						label={t(`settings.playback.chapterSkip.types.${type}`)}
+						description={t(
+							`settings.playback.chapterSkip.descriptions.${type}`,
+						)}
+					>
+						<Select
+							label={t(`settings.playback.chapterSkip.types.${type}`)}
+							value={chapterSkip[type]}
+							onValueChange={(value) =>
+								setChapterSkip({ ...chapterSkip, [type]: value })
+							}
+							values={[...values]}
+							getLabel={(key) =>
+								t(`settings.playback.chapterSkip.behaviors.${key}`)
+							}
+						/>
+					</Preference>
+				);
+			})}
 		</SettingsContainer>
 	);
 };

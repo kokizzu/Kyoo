@@ -1,7 +1,8 @@
 package src
 
 import (
-	"log"
+	"context"
+	"log/slog"
 	"time"
 )
 
@@ -121,12 +122,13 @@ func (t *Tracker) start() {
 }
 
 func (t *Tracker) KillStreamIfDead(sha string, path string) bool {
+	ctx := context.WithoutCancel(context.Background())
 	for _, stream := range t.clients {
 		if stream.sha == sha {
 			return false
 		}
 	}
-	log.Printf("Nobody is watching %s. Killing it", path)
+	slog.InfoContext(ctx, "nobody is watching stream, killing it", "path", path)
 
 	stream, ok := t.transcoder.streams.Get(sha)
 	if !ok {
@@ -148,16 +150,17 @@ func (t *Tracker) DestroyStreamIfOld(sha string) {
 	if !ok {
 		return
 	}
-	stream.Destroy()
+	stream.Destroy(context.WithoutCancel(context.Background()))
 }
 
 func (t *Tracker) KillAudioIfDead(sha string, path string, audio AudioKey) bool {
+	ctx := context.WithoutCancel(context.Background())
 	for _, stream := range t.clients {
 		if stream.sha == sha && stream.audio != nil && *stream.audio == audio {
 			return false
 		}
 	}
-	log.Printf("Nobody is listening audio %d of %s. Killing it", audio.idx, path)
+	slog.InfoContext(ctx, "nobody is listening audio, killing it", "audioIdx", audio.idx, "path", path)
 
 	stream, ok := t.transcoder.streams.Get(sha)
 	if !ok {
@@ -172,12 +175,13 @@ func (t *Tracker) KillAudioIfDead(sha string, path string, audio AudioKey) bool 
 }
 
 func (t *Tracker) KillVideoIfDead(sha string, path string, video VideoKey) bool {
+	ctx := context.WithoutCancel(context.Background())
 	for _, stream := range t.clients {
 		if stream.sha == sha && stream.video != nil && *stream.video == video {
 			return false
 		}
 	}
-	log.Printf("Nobody is watching %s video %d quality %s. Killing it", path, video.idx, video.quality)
+	slog.InfoContext(ctx, "nobody is watching video quality, killing it", "path", path, "videoIdx", video.idx, "quality", video.quality)
 
 	stream, ok := t.transcoder.streams.Get(sha)
 	if !ok {
@@ -212,6 +216,7 @@ func (t *Tracker) KillOrphanedHeads(sha string, video *VideoKey, audio *AudioKey
 }
 
 func (t *Tracker) killOrphanedeheads(stream *Stream, is_video bool) {
+	ctx := context.WithoutCancel(context.Background())
 	stream.lock.Lock()
 	defer stream.lock.Unlock()
 
@@ -229,7 +234,7 @@ func (t *Tracker) killOrphanedeheads(stream *Stream, is_video bool) {
 			distance = min(Abs(ihead-head.segment), distance)
 		}
 		if distance > 20 {
-			log.Printf("Killing orphaned head %s %d", stream.file.Info.Path, encoder_id)
+			slog.InfoContext(ctx, "killing orphaned head", "path", stream.file.Info.Path, "encoderId", encoder_id)
 			stream.KillHead(encoder_id)
 		}
 	}

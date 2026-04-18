@@ -1,19 +1,28 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
+
+	"go.opentelemetry.io/otel"
 )
 
-func PrintExecTime(message string, args ...any) func() {
+var tracer = otel.Tracer("")
+
+func PrintExecTime(ctx context.Context, message string, args ...any) func() {
 	msg := fmt.Sprintf(message, args...)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	_, span := tracer.Start(ctx, msg)
 	start := time.Now()
-	log.Printf("Running %s", msg)
 
 	return func() {
-		log.Printf("%s finished in %s", msg, time.Since(start))
+		slog.InfoContext(ctx, fmt.Sprintf("finished %s", msg), "duration", time.Since(start))
+		span.End()
 	}
 }
 

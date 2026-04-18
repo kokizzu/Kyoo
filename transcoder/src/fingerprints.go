@@ -1,0 +1,160 @@
+package src
+
+import (
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"log/slog"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/zoriya/kyoo/transcoder/src/exec"
+	"github.com/zoriya/kyoo/transcoder/src/utils"
+)
+
+const (
+	FingerprintVersion = 1
+	FpStartPercent     = 0.20
+	FpStartDuration    = 10 * 60
+	FpEndDuration      = 5 * 60
+)
+
+type Fingerprint struct {
+	Start []uint32
+	End   []uint32
+}
+
+func (s *MetadataService) ComputeFingerprint(ctx context.Context, info *MediaInfo) (*Fingerprint, error) {
+	if info.Versions.Fingerprint == FingerprintVersion {
+		var startData string
+		var endData string
+		err := s.Database.QueryRow(ctx,
+			`select start_data, end_data from gocoder.fingerprints where id = $1`,
+			info.Id,
+		).Scan(&startData, &endData)
+		if err == nil {
+			startFingerprint, err := DecompressFingerprint(startData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decompress start fingerprint: %w", err)
+			}
+			endFingerprint, err := DecompressFingerprint(endData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decompress end fingerprint: %w", err)
+			}
+			return &Fingerprint{
+				Start: startFingerprint,
+				End:   endFingerprint,
+			}, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("failed to query fingerprint: %w", err)
+		}
+	}
+
+	get_running, set := s.fingerprintLock.Start(info.Sha)
+	if get_running != nil {
+		return get_running()
+	}
+
+	defer utils.PrintExecTime(ctx, "chromaprint for %s", info.Path)()
+	startFingerprint, err := computeChromaprint(
+		ctx,
+		info.Path,
+		0,
+		min(info.Duration*FpStartPercent, FpStartDuration),
+	)
+	if err != nil {
+		return set(nil, fmt.Errorf("failed to compute start fingerprint: %w", err))
+	}
+
+	endFingerprint, err := computeChromaprint(
+		ctx,
+		info.Path,
+		max(info.Duration-FpEndDuration, 0),
+		-1,
+	)
+	if err != nil {
+		return set(nil, fmt.Errorf("failed to compute end fingerprint: %w", err))
+	}
+
+	_, err = s.Database.Exec(ctx,
+		`update gocoder.info set ver_fingerprint = $2 where id = $1`,
+		info.Id,
+		FingerprintVersion,
+	)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to update fingerprint version", "path", info.Path, "err", err)
+	}
+
+	return set(&Fingerprint{
+		Start: startFingerprint,
+		End:   endFingerprint,
+	}, nil)
+}
+
+func computeChromaprint(
+	ctx context.Context,
+	path string,
+	start float64,
+	duration float64,
+) ([]uint32, error) {
+	ctx = context.WithoutCancel(ctx)
+	defer utils.PrintExecTime(ctx, "chromaprint for %s (between %f and %f)", path, start, duration)()
+
+	args := []string{
+		"-v", "error",
+	}
+	if start > 0 {
+		args = append(args, "-ss", fmt.Sprintf("%.6f", start))
+	}
+	if duration > 0 {
+		args = append(args, "-t", fmt.Sprintf("%.6f", duration))
+	}
+	args = append(args,
+		"-i", path,
+		"-ac", "2",
+		// this algorithm allows silence detection
+		"-algorithm", "3",
+		"-f", "chromaprint",
+		"-fp_format", "raw",
+		"-",
+	)
+
+	cmd := exec.CommandContext(
+		ctx,
+		"ffmpeg",
+		args...,
+	)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("ffmpeg failed: %w", err)
+	}
+
+	if len(output)%4 != 0 {
+		return nil, fmt.Errorf("invalid binary fingerprint size: %d", len(output))
+	}
+
+	result := make([]uint32, len(output)/4)
+	for i := range result {
+		result[i] = binary.LittleEndian.Uint32(output[i*4:])
+	}
+	return result, nil
+}
+
+func (s *MetadataService) StoreFingerprint(ctx context.Context, infoID int32, fingerprint *Fingerprint) error {
+	startCompressed, err := CompressFingerprint(fingerprint.Start)
+	if err != nil {
+		return fmt.Errorf("failed to compress start fingerprint: %w", err)
+	}
+	endCompressed, err := CompressFingerprint(fingerprint.End)
+	if err != nil {
+		return fmt.Errorf("failed to compress end fingerprint: %w", err)
+	}
+
+	_, err = s.Database.Exec(ctx,
+		`insert into gocoder.fingerprints(id, start_data, end_data) values ($1, $2, $3)
+		 on conflict (id) do update set start_data = excluded.start_data, end_data = excluded.end_data`,
+		infoID, startCompressed, endCompressed,
+	)
+	return err
+}

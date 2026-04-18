@@ -100,12 +100,12 @@ func main() {
 
 	_, err := SetupLogger(ctx)
 	if err != nil {
-		slog.Error("logger init", "err", err)
+		slog.ErrorContext(ctx, "logger init", "err", err)
 	}
 
 	cleanup, err := setupOtel(ctx)
 	if err != nil {
-		slog.Error("Failed to setup otel: ", "err", err)
+		slog.ErrorContext(ctx, "Failed to setup otel: ", "err", err)
 		return
 	}
 	defer cleanup(ctx)
@@ -121,7 +121,10 @@ func main() {
 		"/video/health",
 		"/video/ready",
 	}
-	slog.Info("Skipping request logging for these paths", "paths", func() string { sort.Strings(ignorepath); return strings.Join(ignorepath, ",") }())
+	slog.InfoContext(ctx, "Skipping request logging for these paths", "paths", func() string {
+		sort.Strings(ignorepath)
+		return strings.Join(ignorepath, ",")
+	}())
 
 	// using example from https://echo.labstack.com/docs/middleware/logger#examples
 	// full configs https://github.com/labstack/echo/blob/master/middleware/request_logger.go
@@ -183,7 +186,7 @@ func main() {
 	g := e.Group("/video")
 
 	if src.Settings.JwksUrl != "" {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
 		k, err := keyfunc.NewDefaultCtx(ctx, []string{src.Settings.JwksUrl})

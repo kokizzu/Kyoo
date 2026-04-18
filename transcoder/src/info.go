@@ -3,10 +3,15 @@ package src
 import (
 	"cmp"
 	"context"
+	"crypto/sha1"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"mime"
+	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,13 +25,18 @@ import (
 const InfoVersion = 4
 
 type Versions struct {
-	Info      int32 `json:"info" db:"ver_info"`
-	Extract   int32 `json:"extract" db:"ver_extract"`
-	Thumbs    int32 `json:"thumbs" db:"ver_thumbs"`
-	Keyframes int32 `json:"keyframes" db:"ver_keyframes"`
+	Info        int32 `json:"info" db:"ver_info"`
+	Extract     int32 `json:"extract" db:"ver_extract"`
+	Thumbs      int32 `json:"thumbs" db:"ver_thumbs"`
+	Keyframes   int32 `json:"keyframes" db:"ver_keyframes"`
+	Fingerprint int32 `json:"fingerprint" db:"ver_fingerprint"`
+	/// List of sha this was fingerprinted with
+	FpWith []string `json:"fpWith" db:"ver_fp_with"`
 }
 
 type MediaInfo struct {
+	// Auto-increment id used as foreign key for related tables.
+	Id int32 `json:"id" db:"id"`
 	// The sha1 of the video file.
 	Sha string `json:"sha" db:"sha"`
 	/// The internal path of the video file.
@@ -60,7 +70,7 @@ type MediaInfo struct {
 }
 
 type Video struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The index of this track on the media.
 	Index uint32 `json:"index" db:"idx"`
@@ -86,7 +96,7 @@ type Video struct {
 }
 
 type Audio struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The index of this track on the media.
 	Index uint32 `json:"index" db:"idx"`
@@ -110,7 +120,7 @@ type Audio struct {
 }
 
 type Subtitle struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The index of this track on the media.
 	Index *uint32 `json:"index" db:"idx"`
@@ -137,7 +147,7 @@ type Subtitle struct {
 }
 
 type Chapter struct {
-	Sha string `json:"-" db:"sha"`
+	Id int32 `json:"-" db:"id"`
 
 	/// The start time of the chapter (in second from the start of the episode).
 	StartTime float32 `json:"startTime" db:"start_time"`
@@ -145,8 +155,12 @@ type Chapter struct {
 	EndTime float32 `json:"endTime" db:"end_time"`
 	/// The name of this chapter. This should be a human-readable name that could be presented to the user.
 	Name string `json:"name" db:"name"`
-	/// The type value is used to mark special chapters (openning/credits...)
+	/// The type value is used to mark special chapters (opening/credits...)
 	Type ChapterType `json:"type" db:"type"`
+	// true only for introductions where the audio track is new (first time we'we heard this one in the serie)
+	FirstAppearance *bool `json:"firstAppearance,omitempty" db:"first_appearance"`
+	/// Accuracy of the fingerprint match (0-100).
+	MatchAccuracy *int32 `json:"matchAccuracy,omitempty" db:"match_accuracy"`
 }
 
 type ChapterType string
@@ -159,6 +173,26 @@ const (
 	Preview ChapterType = "preview"
 )
 
+// regex stolen from https://github.com/intro-skipper/intro-skipper/wiki/Chapter-Detection-Patterns
+var chapterTypePatterns = []struct {
+	kind    ChapterType
+	pattern *regexp.Regexp
+}{
+	{kind: Recap, pattern: regexp.MustCompile(`(?i)\b(re?cap|sum+ary|prev(ious(ly)?)?|(last|earlier)(\b\w+)?|catch\bup)\b`)},
+	{kind: Intro, pattern: regexp.MustCompile(`(?i)\b(intro|introduction|op|opening)\b`)},
+	{kind: Credits, pattern: regexp.MustCompile(`(?i)\b(credits?|ed|ending|outro)\b`)},
+	{kind: Preview, pattern: regexp.MustCompile(`(?i)\b(preview|pv|sneak\b?peek|coming\b?(up|soon)|next\b+(time|on|episode)|extra|teaser|trailer)\b`)},
+}
+
+func identifyChapterType(name string) ChapterType {
+	for _, matcher := range chapterTypePatterns {
+		if matcher.pattern.MatchString(name) {
+			return matcher.kind
+		}
+	}
+	return Content
+}
+
 func ParseFloat(str string) float32 {
 	f, err := strconv.ParseFloat(str, 32)
 	if err != nil {
@@ -170,7 +204,7 @@ func ParseFloat(str string) float32 {
 func ParseUint(str string) uint32 {
 	i, err := strconv.ParseUint(str, 10, 32)
 	if err != nil {
-		println(str)
+		slog.WarnContext(context.WithoutCancel(context.Background()), "failed to parse uint", "value", str, "err", err)
 		return 0
 	}
 	return uint32(i)
@@ -179,7 +213,7 @@ func ParseUint(str string) uint32 {
 func ParseInt64(str string) int64 {
 	i, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		println(str)
+		slog.WarnContext(context.WithoutCancel(context.Background()), "failed to parse int64", "value", str, "err", err)
 		return 0
 	}
 	return i
@@ -233,11 +267,10 @@ var SubtitleExtensions = map[string]string{
 	"hdmv_pgs_subtitle": "sup",
 }
 
-func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
-	defer utils.PrintExecTime("mediainfo for %s", path)()
-
-	ctx, cancelFn := context.WithTimeout(context.Background(), 30*time.Second)
+func RetriveMediaInfo(ctx context.Context, path string, sha string) (*MediaInfo, error) {
+	ctx, cancelFn := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancelFn()
+	defer utils.PrintExecTime(ctx, "mediainfo for %s", path)()
 
 	mi, err := ffprobe.ProbeURL(ctx, path)
 	if err != nil {
@@ -253,10 +286,11 @@ func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
 		Duration:  mi.Format.DurationSeconds,
 		Container: OrNull(mi.Format.FormatName),
 		Versions: Versions{
-			Info:      InfoVersion,
-			Extract:   0,
-			Thumbs:    0,
-			Keyframes: 0,
+			Info:        InfoVersion,
+			Extract:     0,
+			Thumbs:      0,
+			Keyframes:   0,
+			Fingerprint: 0,
 		},
 		Videos: MapStream(mi.Streams, ffprobe.StreamVideo, func(stream *ffprobe.Stream, i uint32) Video {
 			lang, _ := language.Parse(stream.Tags.Language)
@@ -312,8 +346,7 @@ func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
 				Name:      c.Title(),
 				StartTime: float32(c.StartTimeSeconds),
 				EndTime:   float32(c.EndTimeSeconds),
-				// TODO: detect content type
-				Type: Content,
+				Type:      identifyChapterType(c.Title()),
 			}
 		}),
 		Fonts: MapStream(mi.Streams, ffprobe.StreamAttachment, func(stream *ffprobe.Stream, i uint32) string {
@@ -339,4 +372,17 @@ func RetriveMediaInfo(path string, sha string) (*MediaInfo, error) {
 		}
 	}
 	return &ret, nil
+}
+
+// ComputeSha computes a SHA1 hash of the file path and its modification time.
+// This is used as a cache key to detect when a file has changed.
+func ComputeSha(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	h := sha1.New()
+	h.Write([]byte(path))
+	h.Write([]byte(info.ModTime().String()))
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

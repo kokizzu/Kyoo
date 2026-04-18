@@ -24,6 +24,8 @@ Kyoo does not have a plugin system and aim to have every features built-in (see 
 
 - **Video Preview Thumbnails:** Simply hover the video's progress bar and see a preview of the video.
 
+- **Intro/Credit detection:** Automatically detect intro/credits with audio fingerprinting (or chapter title matching).
+
 - **Enhanced Subtitle Support:** Subtitles are important, Kyoo supports PGS/VODSUB and SSA/ASS and uses the video's embedded fonts when available.
 
 - **Anime Name Parsing**: Kyoo will match weird anime names (like `[Some-Stuffs] Jojo's Bizarre Adventure Stone Ocean 24 (1920x1080 Blu-Ray Opus) [2750810F].mkv`) without issue.

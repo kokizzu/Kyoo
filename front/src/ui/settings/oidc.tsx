@@ -23,6 +23,8 @@ export const OidcSettings = () => {
 		invalidate: ["auth", "users", "me"],
 	});
 
+	if (data && Object.keys(data.oidc).length === 0) return null;
+
 	return (
 		<SettingsContainer title={t("settings.oidc.label")}>
 			{unlinkError && <P className="text-red-500">{unlinkError}</P>}

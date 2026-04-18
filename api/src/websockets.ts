@@ -5,6 +5,7 @@ import Elysia, { type TSchema, t } from "elysia";
 import { auth } from "./auth";
 import { updateProgress } from "./controllers/profiles/history";
 import { getOrCreateProfile } from "./controllers/profiles/profile";
+import { prepareVideo } from "./controllers/video-metadata";
 import { getVideos } from "./controllers/videos";
 import { videos } from "./db/schema";
 
@@ -61,23 +62,14 @@ const actionMap = {
 					languages: ["*"],
 					userId: ws.data.jwt.sub,
 				});
-				if (!vid) return;
-
-				logger.info("Preparing next video {videoId}", {
-					videoId: vid.id,
-				});
-				const path = Buffer.from(vid.path, "utf8").toString("base64url");
-				await fetch(
-					new URL(
-						`/video/${path}/prepare`,
-						process.env.TRANSCODER_SERVER ?? "http://transcoder:7666",
-					),
-					{
-						headers: {
-							authorization: ws.data.headers.authorization!,
-						},
-					},
-				);
+				const next = vid?.next?.video;
+				if (!next) {
+					logger.info("No next video to prepare for ${slug}", {
+						slug: vid.path,
+					});
+					return;
+				}
+				await prepareVideo(next, ws.data.headers.authorization!);
 			}
 		},
 	}),

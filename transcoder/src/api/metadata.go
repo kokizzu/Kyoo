@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/asticode/go-astisub"
 	"github.com/labstack/echo/v5"
@@ -62,10 +64,11 @@ func (h *mhandler) GetInfo(c *echo.Context) error {
 			Container: nil,
 			MimeCodec: nil,
 			Versions: src.Versions{
-				Info:      -1,
-				Extract:   0,
-				Thumbs:    0,
-				Keyframes: 0,
+				Info:        -1,
+				Extract:     0,
+				Thumbs:      0,
+				Keyframes:   0,
+				Fingerprint: 0,
 			},
 			Videos:    make([]src.Video, 0),
 			Audios:    make([]src.Audio, 0),
@@ -79,41 +82,78 @@ func (h *mhandler) GetInfo(c *echo.Context) error {
 
 // @Summary      Prepare metadata
 //
-// @Description  Starts metadata preparation in background (info, extract, thumbs, keyframes).
+// @Description  Starts metadata preparation in background (info, extract, thumbs, keyframes, chapter identification).
 //
 // @Tags         metadata
 // @Param        path  path   string    true  "Base64 of a video's path"  format(base64) example(L3ZpZGVvL2J1YmJsZS5ta3YK)
+// @Param        prev  query   false  "Previous episode path (base64)"
+// @Param        next  query   false  "Next episode path (base64)"
 //
 // @Success      202  "Preparation started"
-// @Router       /:path/prepare [get]
+// @Router       /:path/prepare [post]
 func (h *mhandler) Prepare(c *echo.Context) error {
 	path, sha, err := getPath(c)
 	if err != nil {
 		return err
 	}
+	p := c.QueryParam("prev")
+	prev, psha, err := getPathS(p)
+	if p != "" && err != nil {
+		return err
+	}
+	n := c.QueryParam("next")
+	next, nsha, err := getPathS(n)
+	if n != "" && err != nil {
+		return err
+	}
 
-	go func(path string, sha string) {
-		bgCtx := context.Background()
+	go func() {
+		ctx := context.WithoutCancel(c.Request().Context())
 
-		info, err := h.metadata.GetMetadata(bgCtx, path, sha)
+		info, err := h.metadata.GetMetadata(ctx, path, sha)
 		if err != nil {
-			fmt.Printf("failed to prepare metadata for %s: %v\n", path, err)
+			slog.ErrorContext(ctx, "failed to prepare metadata", "path", path, "err", err)
 			return
 		}
 
 		// thumb & subs are already extracted in `GetMetadata`
 
 		for _, video := range info.Videos {
-			if _, err := h.metadata.GetKeyframes(info, true, video.Index); err != nil {
-				fmt.Printf("failed to extract video keyframes for %s (stream %d): %v\n", path, video.Index, err)
+			if _, err := h.metadata.GetKeyframes(ctx, info, true, video.Index); err != nil {
+				slog.WarnContext(ctx, "failed to extract video keyframes", "path", path, "stream", video.Index, "err", err)
 			}
 		}
 		for _, audio := range info.Audios {
-			if _, err := h.metadata.GetKeyframes(info, false, audio.Index); err != nil {
-				fmt.Printf("failed to extract audio keyframes for %s (stream %d): %v\n", path, audio.Index, err)
+			if _, err := h.metadata.GetKeyframes(ctx, info, false, audio.Index); err != nil {
+				slog.WarnContext(ctx, "failed to extract audio keyframes", "path", path, "stream", audio.Index, "err", err)
 			}
 		}
-	}(path, sha)
+
+		fpWith := make([]string, 0, 2)
+		if prev != "" {
+			fpWith = append(fpWith, psha)
+		}
+		if next != "" {
+			fpWith = append(fpWith, nsha)
+		}
+		if slices.Compare(info.Versions.FpWith, fpWith) != 0 {
+			err = h.metadata.IdentifyChapters(ctx, info, prev, next)
+			if err != nil {
+				return
+			}
+			_, err = h.metadata.Database.Exec(
+				ctx,
+				"update gocoder.info set ver_fp_with = $2 where id = $1",
+				info.Id,
+				fpWith,
+			)
+			if err != nil {
+				slog.WarnContext(ctx, "failed to save chapter identify info", "path", path, "err", err)
+			}
+		} else {
+			slog.InfoContext(ctx, "chapter detection up to date", "path", path)
+		}
+	}()
 
 	return c.NoContent(http.StatusAccepted)
 }

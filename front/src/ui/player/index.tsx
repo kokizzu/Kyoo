@@ -139,6 +139,10 @@ export const Player = () => {
 		setSlug(data.next.video);
 		return true;
 	}, [data?.next, setSlug, setStart, t]);
+	const onEnd = useCallback(() => {
+		const hasNext = playNext();
+		if (!hasNext && data?.show?.href) router.navigate(data.show.href);
+	}, [data?.show?.href, playNext, router]);
 
 	useProgressObserver(
 		player,
@@ -146,10 +150,7 @@ export const Player = () => {
 	);
 	useLanguagePreference(player, slug);
 
-	useEvent(player, "onEnd", () => {
-		const hasNext = playNext();
-		if (!hasNext && data?.show) router.navigate(data.show.href);
-	});
+	useEvent(player, "onEnd", onEnd);
 
 	// TODO: add the equivalent of this for android
 	useEffect(() => {
@@ -225,6 +226,7 @@ export const Player = () => {
 					chapters={info?.chapters ?? []}
 					playPrev={data?.previous ? playPrev : null}
 					playNext={data?.next ? playNext : null}
+					seekEnd={onEnd}
 					onOpenEntriesMenu={
 						data?.show?.kind === "serie"
 							? () => setEntriesMenuOpen(true)

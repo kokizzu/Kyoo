@@ -65,6 +65,8 @@ export const Chapter = z.object({
 	endTime: z.number(),
 	name: z.string(),
 	type: z.enum(["content", "recap", "intro", "credits", "preview"]),
+	firstAppearance: z.boolean().optional(),
+	matchAccuracy: z.number().optional(),
 });
 export type Chapter = z.infer<typeof Chapter>;
 

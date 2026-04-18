@@ -1,16 +1,18 @@
 package src
 
 import (
-	"log"
+	"context"
+	"log/slog"
 	"os"
 )
 
 func DetectHardwareAccel() HwAccelT {
+	ctx := context.WithoutCancel(context.Background())
 	name := GetEnvOr("GOCODER_HWACCEL", "disabled")
 	if name == "disabled" {
 		name = GetEnvOr("GOTRANSCODER_HWACCEL", "disabled")
 	}
-	log.Printf("Using hardware acceleration: %s", name)
+	slog.InfoContext(ctx, "using hardware acceleration", "name", name)
 
 	// superfast or ultrafast would produce a file extremely big so we prefer to ignore them. Fast is available on all hwaccel modes
 	// so we use that by default.
@@ -107,7 +109,7 @@ func DetectHardwareAccel() HwAccelT {
 			NoResizeFilter: "format=nv12|cuda,hwupload,scale_cuda=format=nv12",
 		}
 	default:
-		log.Printf("No hardware accelerator named: %s", name)
+		slog.ErrorContext(ctx, "no hardware accelerator named", "name", name)
 		os.Exit(2)
 		panic("unreachable")
 	}

@@ -3,7 +3,7 @@ import { useAccount } from "~/providers/account-context";
 import { AccountSettings } from "./account";
 import { About, GeneralSettings } from "./general";
 import { OidcSettings } from "./oidc";
-import { PlaybackSettings } from "./playback";
+import { ChapterSkipSettings, PlaybackSettings } from "./playback";
 import { SessionsSettings } from "./sessions";
 
 export const SettingsPage = () => {
@@ -12,6 +12,7 @@ export const SettingsPage = () => {
 		<ScrollView contentContainerClassName="gap-8 pb-8">
 			<GeneralSettings />
 			{account && <PlaybackSettings />}
+			{account && <ChapterSkipSettings />}
 			{account && <AccountSettings />}
 			{account && <SessionsSettings />}
 			{account && <OidcSettings />}

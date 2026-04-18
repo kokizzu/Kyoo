@@ -3,7 +3,7 @@ package src
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"os"
 	"slices"
@@ -33,7 +33,7 @@ type VideoKey struct {
 	quality VideoQuality
 }
 
-func (t *Transcoder) newFileStream(path string, sha string) *FileStream {
+func (t *Transcoder) newFileStream(ctx context.Context, path string, sha string) *FileStream {
 	ret := &FileStream{
 		transcoder: t,
 		Out:        fmt.Sprintf("%s/%s", Settings.Outpath, sha),
@@ -42,14 +42,15 @@ func (t *Transcoder) newFileStream(path string, sha string) *FileStream {
 	}
 
 	ret.ready.Add(1)
-	go func() {
+	go func(ctx context.Context) {
 		defer ret.ready.Done()
-		info, err := t.metadataService.GetMetadata(context.Background(), path, sha)
+		ctx = context.WithoutCancel(ctx)
+		info, err := t.metadataService.GetMetadata(ctx, path, sha)
 		ret.Info = info
 		if err != nil {
 			ret.err = err
 		}
-	}()
+	}(ctx)
 
 	return ret
 }
@@ -68,13 +69,15 @@ func (fs *FileStream) Kill() {
 	}
 }
 
-func (fs *FileStream) Destroy() {
-	log.Printf("Removing all transcode cache files for %s", fs.Info.Path)
+func (fs *FileStream) Destroy(ctx context.Context) {
+	ctx = context.WithoutCancel(ctx)
+	slog.InfoContext(ctx, "removing all transcode cache files", "path", fs.Info.Path)
 	fs.Kill()
 	_ = os.RemoveAll(fs.Out)
 }
 
-func (fs *FileStream) GetMaster(client string) string {
+func (fs *FileStream) GetMaster(ctx context.Context, client string) string {
+	ctx = context.WithoutCancel(ctx)
 	master := "#EXTM3U\n"
 
 	// codec is the prefix + the level, the level is not part of the codec we want to compare for the same_codec check bellow
@@ -233,54 +236,60 @@ func (fs *FileStream) GetMaster(client string) string {
 	return master
 }
 
-func (fs *FileStream) getVideoStream(idx uint32, quality VideoQuality) (*VideoStream, error) {
+func (fs *FileStream) getVideoStream(ctx context.Context, idx uint32, quality VideoQuality) (*VideoStream, error) {
+	ctx = context.WithoutCancel(ctx)
 	stream, _ := fs.videos.GetOrCreate(VideoKey{idx, quality}, func() *VideoStream {
-		ret, _ := fs.transcoder.NewVideoStream(fs, idx, quality)
+		ret, _ := fs.transcoder.NewVideoStream(ctx, fs, idx, quality)
 		return ret
 	})
 	stream.ready.Wait()
 	return stream, nil
 }
 
-func (fs *FileStream) GetVideoIndex(idx uint32, quality VideoQuality, client string) (string, error) {
-	stream, err := fs.getVideoStream(idx, quality)
+func (fs *FileStream) GetVideoIndex(ctx context.Context, idx uint32, quality VideoQuality, client string) (string, error) {
+	ctx = context.WithoutCancel(ctx)
+	stream, err := fs.getVideoStream(ctx, idx, quality)
 	if err != nil {
 		return "", err
 	}
-	return stream.GetIndex(client)
+	return stream.GetIndex(ctx, client)
 }
 
-func (fs *FileStream) GetVideoSegment(idx uint32, quality VideoQuality, segment int32) (string, error) {
-	stream, err := fs.getVideoStream(idx, quality)
+func (fs *FileStream) GetVideoSegment(ctx context.Context, idx uint32, quality VideoQuality, segment int32) (string, error) {
+	ctx = context.WithoutCancel(ctx)
+	stream, err := fs.getVideoStream(ctx, idx, quality)
 	if err != nil {
 		return "", err
 	}
-	return stream.GetSegment(segment)
+	return stream.GetSegment(ctx, segment)
 }
 
-func (fs *FileStream) getAudioStream(idx uint32, quality AudioQuality) (*AudioStream, error) {
+func (fs *FileStream) getAudioStream(ctx context.Context, idx uint32, quality AudioQuality) (*AudioStream, error) {
+	ctx = context.WithoutCancel(ctx)
 	stream, _ := fs.audios.GetOrCreate(AudioKey{idx, quality}, func() *AudioStream {
-		ret, _ := fs.transcoder.NewAudioStream(fs, idx, quality)
+		ret, _ := fs.transcoder.NewAudioStream(ctx, fs, idx, quality)
 		return ret
 	})
 	stream.ready.Wait()
 	return stream, nil
 }
 
-func (fs *FileStream) GetAudioIndex(idx uint32, quality AudioQuality, client string) (string, error) {
-	stream, err := fs.getAudioStream(idx, quality)
+func (fs *FileStream) GetAudioIndex(ctx context.Context, idx uint32, quality AudioQuality, client string) (string, error) {
+	ctx = context.WithoutCancel(ctx)
+	stream, err := fs.getAudioStream(ctx, idx, quality)
 	if err != nil {
 		return "", err
 	}
-	return stream.GetIndex(client)
+	return stream.GetIndex(ctx, client)
 }
 
-func (fs *FileStream) GetAudioSegment(idx uint32, quality AudioQuality, segment int32) (string, error) {
-	stream, err := fs.getAudioStream(idx, quality)
+func (fs *FileStream) GetAudioSegment(ctx context.Context, idx uint32, quality AudioQuality, segment int32) (string, error) {
+	ctx = context.WithoutCancel(ctx)
+	stream, err := fs.getAudioStream(ctx, idx, quality)
 	if err != nil {
 		return "", err
 	}
-	return stream.GetSegment(segment)
+	return stream.GetSegment(ctx, segment)
 }
 
 func matchAudioQuality(q VideoQuality) AudioQuality {
