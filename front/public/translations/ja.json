@@ -1,0 +1,402 @@
+{
+	"home": {
+		"recommended": "おすすめ",
+		"news": "新着",
+		"watchlist": "続きから読む",
+		"info": "もっと見る",
+		"none": "エピソードなし",
+		"watchlistLogin": "視聴済みや視聴予定のコンテンツを利用するには、ログインが必要です。",
+		"refreshMetadata": "メタデータ更新",
+		"episodeMore": {
+			"goToShow": "見に行く",
+			"download": "ダウンロード",
+			"mediainfo": "ファイル情報を見る"
+		}
+	},
+	"show": {
+		"play": "再生",
+		"trailer": "予告編を再生",
+		"studios": "スタジオ",
+		"genre": "ジャンル",
+		"genre-none": "ジャンルなし",
+		"staff": "スタッフ",
+		"staff-none": "スタッフ不明",
+		"noOverview": "概要なし",
+		"episode-none": "このシーズンにエピソードはありません",
+		"episodeNoMetadata": "メタデータなし",
+		"tags": "タグ",
+		"tags-none": "タグなし",
+		"links": "リンク",
+		"jumpToSeason": "シーズンへ",
+		"partOf": "一部",
+		"watchlistAdd": "ウォッチリストに追加",
+		"watchlistEdit": "視聴履歴を編集",
+		"watchlistRemove": "未視聴とする",
+		"watchlistLogin": "ログインしてウォッチリストに追加",
+		"watchlistMark": {
+			"completed": "視聴済みとする",
+			"planned": "予定済みとする",
+			"watching": "視聴中とする",
+			"rewatching": "再視聴中とする",
+			"dropped": "視聴中断とする",
+			"null": "未視聴とする"
+		},
+		"nextUp": "次のメディア",
+		"season": "シーズン {{number}}",
+		"multiVideos": "複数のビデオファイルが利用可能",
+		"videosCount": "{{number}} 個の動画",
+		"version": "バージョン {{number}}",
+		"part": "パート {{number}}",
+		"videos-map": "",
+		"remap": "",
+		"staff-as": "",
+		"staff-kind": {
+			"actor": "役者",
+			"director": "監督",
+			"writter": "脚本",
+			"producer": "プロデューサー",
+			"music": "音楽",
+			"crew": "スタッフ",
+			"other": "ほか"
+		}
+	},
+	"videos-map": {
+		"none": "なし",
+		"add": "ほかの動画を追加",
+		"delete": "シリーズから動画を削除",
+		"validate": "",
+		"no-guess": "この動画は、シリーズの一部と推測されますが、どのエピソードかは分かりません",
+		"related": "タイトル『 {{title}} 』に関連する動画を追加しました",
+		"sort-path": "パス",
+		"sort-entry": "エピソード順",
+		"no-video": "このシリーズに関連付けられた動画ファイルはありません。"
+	},
+	"browse": {
+		"mediatypekey": {
+			"all": "すべて",
+			"movie": "",
+			"collection": "コレクション",
+			"serie": "シリーズ"
+		},
+		"mediatype-tt": "メディア形式",
+		"mediatypelabel": "メディア形式",
+		"sortby": "{{key}}順",
+		"sortby-tt": "並べ替え",
+		"sortkey": {
+			"relevance": "関連",
+			"name": "名前",
+			"airDate": "放送日",
+			"startAir": "放送開始",
+			"endAir": "放送終了",
+			"createdAt": "追加日",
+			"rating": "評価"
+		},
+		"sortord": {
+			"asc": "昇順",
+			"desc": "降順"
+		},
+		"switchToGrid": "グリッドビューにする",
+		"switchToList": "リスト表示にする",
+		"not": ""
+	},
+	"profile": {
+		"history": "履歴",
+		"watchlist": "ウォッチリスト",
+		"statuses": {
+			"all": "すべて",
+			"completed": "視聴済み",
+			"watching": "視聴中",
+			"rewatching": "再視聴",
+			"dropped": "視聴中断",
+			"planned": ""
+		}
+	},
+	"genres": {
+		"action": "アクション",
+		"adventure": "冒険",
+		"animation": "アニメ",
+		"comedy": "コメディ",
+		"crime": "犯罪",
+		"documentary": "ドキュメンタリー",
+		"drama": "ドラマ",
+		"family": "ファミリー",
+		"fantasy": "ファンタジー",
+		"history": "歴史",
+		"horror": "ホラー",
+		"music": "ミュージック",
+		"mystery": "ミステリー",
+		"romance": "ロマンス",
+		"science-fiction": "SF／Sci-fi",
+		"thriller": "スリラー",
+		"war": "",
+		"western": "",
+		"kids": "",
+		"reality": "",
+		"politics": "",
+		"soap": "",
+		"talk": ""
+	},
+	"misc": {
+		"settings": "",
+		"prev-page": "",
+		"next-page": "",
+		"delete": "",
+		"delete-name": "",
+		"cancel": "",
+		"more": "",
+		"expand": "",
+		"collapse": "",
+		"edit": "",
+		"or": "",
+		"loading": ""
+	},
+	"navbar": {
+		"home": "",
+		"browse": "",
+		"profile": "",
+		"download": "",
+		"search": "",
+		"login": "",
+		"admin": ""
+	},
+	"settings": {
+		"general": {
+			"label": "",
+			"theme": {
+				"label": "",
+				"description": "",
+				"auto": "",
+				"light": "",
+				"dark": ""
+			},
+			"language": {
+				"label": "",
+				"description": ""
+			}
+		},
+		"playback": {
+			"label": "",
+			"playmode": {
+				"label": "",
+				"description": ""
+			},
+			"audioLanguage": {
+				"label": "",
+				"description": ""
+			},
+			"subtitleLanguage": {
+				"label": "",
+				"description": "",
+				"none": ""
+			},
+			"chapterSkip": {
+				"label": "",
+				"behaviors": {
+					"autoSkip": "",
+					"autoSkipExceptFirstAppearance": "",
+					"showSkipButton": "",
+					"disabled": ""
+				},
+				"types": {
+					"recap": "",
+					"intro": "",
+					"credits": "",
+					"preview": ""
+				},
+				"descriptions": {
+					"recap": "",
+					"intro": "",
+					"credits": "",
+					"preview": ""
+				}
+			}
+		},
+		"account": {
+			"label": "",
+			"username": {
+				"label": ""
+			},
+			"avatar": {
+				"label": "",
+				"description": ""
+			},
+			"email": {
+				"label": ""
+			},
+			"password": {
+				"label": "",
+				"description": "",
+				"oldPassword": "",
+				"newPassword": ""
+			}
+		},
+		"sessions": {
+			"label": "",
+			"description": "",
+			"current": "",
+			"revoke": ""
+		},
+		"oidc": {
+			"label": "",
+			"connected": "",
+			"not-connected": "",
+			"open-profile": "",
+			"link": "",
+			"delete": ""
+		},
+		"about": {
+			"label": "",
+			"android-app": {
+				"label": "",
+				"description": ""
+			},
+			"git": {
+				"label": "",
+				"description": ""
+			}
+		}
+	},
+	"player": {
+		"back": "",
+		"previous": "",
+		"next": "",
+		"play": "",
+		"pause": "",
+		"mute": "",
+		"volume": "",
+		"quality": "",
+		"audios": "",
+		"videos": "",
+		"subtitles": "",
+		"subtitle-none": "",
+		"fullscreen": "",
+		"direct": "",
+		"transmux": "",
+		"auto": "",
+		"notInPristine": "",
+		"unsupportedError": "",
+		"not-available": "",
+		"fatal": "",
+		"entry-list": "",
+		"chapters": {
+			"skip": "",
+			"intro": "",
+			"credits": "",
+			"recap": "",
+			"preview": ""
+		}
+	},
+	"search": {
+		"empty": ""
+	},
+	"login": {
+		"login": "",
+		"register": "",
+		"guest": "",
+		"guest-forbidden": "",
+		"via": "",
+		"add-account": "",
+		"logout": "",
+		"server": "",
+		"email": "",
+		"username": "",
+		"password": "",
+		"confirm": "",
+		"or-register": "",
+		"or-login": "",
+		"password-no-match": "",
+		"delete": "",
+		"delete-confirmation": "",
+		"register-disabled": "",
+		"register-disabled-oidc": ""
+	},
+	"downloads": {
+		"empty": "",
+		"error": "",
+		"delete": "",
+		"deleteMessage": "",
+		"pause": "",
+		"resume": "",
+		"retry": ""
+	},
+	"errors": {
+		"connection": "",
+		"connection-tips": "",
+		"unknown": "",
+		"try-again": "",
+		"re-login": "",
+		"offline": "",
+		"invalid-server": "",
+		"unauthorized": "",
+		"needVerification": "",
+		"needAccount": "",
+		"setup": {
+			"MissingAdminAccount": "",
+			"NoVideoFound": ""
+		}
+	},
+	"mediainfo": {
+		"title": "",
+		"file": "",
+		"container": "",
+		"video": "",
+		"audio": "",
+		"subtitles": "",
+		"channels": "",
+		"forced": "",
+		"hearing-impaired": "",
+		"default": "",
+		"external": "",
+		"duration": "",
+		"size": "",
+		"novideo": "",
+		"noaudio": "",
+		"nocontainer": "",
+		"unknown": ""
+	},
+	"admin": {
+		"users": {
+			"label": "",
+			"adminUser": "",
+			"regularUser": "",
+			"set-permissions": "",
+			"delete": "",
+			"unverifed": "",
+			"verify": "",
+			"table": {
+				"username": "",
+				"lastSeen": "",
+				"oidc": ""
+			}
+		},
+		"scanner": {
+			"label": "",
+			"scan": "",
+			"empty": ""
+		},
+		"unmatched": {
+			"label": "",
+			"rescan": "",
+			"empty": "",
+			"search": "",
+			"match": "",
+			"match-file": "",
+			"status-pending": "",
+			"status-running": "",
+			"status-failed": "",
+			"progress-running": "",
+			"progress-pending": "",
+			"progress-failed": ""
+		},
+		"add": {
+			"title": "",
+			"searchPlaceholder": "",
+			"year": "",
+			"library": "",
+			"movies": "",
+			"series": "",
+			"noResults": "",
+			"typeToSearch": ""
+		}
+	}
+}
