@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v5"
 	"github.com/zoriya/kyoo/transcoder/src"
 )
@@ -17,6 +18,7 @@ type shandler struct {
 func RegisterStreamHandlers(e *echo.Group, transcoder *src.Transcoder) {
 	h := shandler{transcoder}
 
+	e.GET("/streams", h.GetStreams)
 	e.GET("/:path/direct", DirectStream)
 	e.GET("/:path/direct/:identifier", DirectStream)
 	e.GET("/:path/master.m3u8", h.GetMaster)
@@ -61,12 +63,13 @@ func (h *shandler) GetMaster(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
+	profileId, sessionId := getIdentity(c)
 	path, sha, err := getPath(c)
 	if err != nil {
 		return err
 	}
 
-	ret, err := h.transcoder.GetMaster(c.Request().Context(), path, client, sha)
+	ret, err := h.transcoder.GetMaster(c.Request().Context(), path, client, profileId, sessionId, sha)
 	if err != nil {
 		return err
 	}
@@ -97,12 +100,22 @@ func (h *shandler) GetVideoIndex(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
+	profileId, sessionId := getIdentity(c)
 	path, sha, err := getPath(c)
 	if err != nil {
 		return err
 	}
 
-	ret, err := h.transcoder.GetVideoIndex(c.Request().Context(), path, uint32(video), quality, client, sha)
+	ret, err := h.transcoder.GetVideoIndex(
+		c.Request().Context(),
+		path,
+		uint32(video),
+		quality,
+		client,
+		profileId,
+		sessionId,
+		sha,
+	)
 	if err != nil {
 		return err
 	}
@@ -133,12 +146,22 @@ func (h *shandler) GetAudioIndex(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
+	profileId, sessionId := getIdentity(c)
 	path, sha, err := getPath(c)
 	if err != nil {
 		return err
 	}
 
-	ret, err := h.transcoder.GetAudioIndex(c.Request().Context(), path, uint32(audio), quality, client, sha)
+	ret, err := h.transcoder.GetAudioIndex(
+		c.Request().Context(),
+		path,
+		uint32(audio),
+		quality,
+		client,
+		profileId,
+		sessionId,
+		sha,
+	)
 	if err != nil {
 		return err
 	}
@@ -171,6 +194,7 @@ func (h *shandler) GetVideoSegment(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
+	profileId, sessionId := getIdentity(c)
 	path, sha, err := getPath(c)
 	if err != nil {
 		return err
@@ -183,6 +207,8 @@ func (h *shandler) GetVideoSegment(c *echo.Context) error {
 		quality,
 		segment,
 		client,
+		profileId,
+		sessionId,
 		sha,
 	)
 	if err != nil {
@@ -216,16 +242,31 @@ func (h *shandler) GetAudioSegment(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
+	profileId, sessionId := getIdentity(c)
 	path, sha, err := getPath(c)
 	if err != nil {
 		return err
 	}
 
-	ret, err := h.transcoder.GetAudioSegment(c.Request().Context(), path, uint32(audio), quality, segment, client, sha)
+	ret, err := h.transcoder.GetAudioSegment(
+		c.Request().Context(),
+		path,
+		uint32(audio),
+		quality,
+		segment,
+		client,
+		profileId,
+		sessionId,
+		sha,
+	)
 	if err != nil {
 		return err
 	}
 	return c.File(strings.TrimLeft(ret, "/"))
+}
+
+func (h *shandler) GetStreams(c *echo.Context) error {
+	return c.JSON(http.StatusOK, h.transcoder.ListRunningStreams())
 }
 
 func getClientId(c *echo.Context) (string, error) {
@@ -237,6 +278,29 @@ func getClientId(c *echo.Context) (string, error) {
 		return "", echo.NewHTTPError(http.StatusBadRequest, "missing client id. Please specify the X-CLIENT-ID header (or the clientId query param) to a guid constant for the lifetime of the player (but unique per instance)")
 	}
 	return key, nil
+}
+
+func getIdentity(c *echo.Context) (*string, *string) {
+	token, ok := c.Get("user").(*jwt.Token)
+	if !ok || token == nil {
+		return nil, nil
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, nil
+	}
+
+	profileId := normalizeOptionalId(claims["sub"])
+	sessionId := normalizeOptionalId(claims["sid"])
+	return profileId, sessionId
+}
+
+func normalizeOptionalId(value any) *string {
+	id, ok := value.(string)
+	if !ok || id == "" || id == "00000000-0000-0000-0000-000000000000" {
+		return nil
+	}
+	return &id
 }
 
 func parseSegment(segment string) (int32, error) {

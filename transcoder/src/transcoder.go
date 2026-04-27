@@ -50,20 +50,22 @@ func (t *Transcoder) getFileStream(ctx context.Context, path string, sha string)
 	return ret, nil
 }
 
-func (t *Transcoder) GetMaster(ctx context.Context, path string, client string, sha string) (string, error) {
+func (t *Transcoder) GetMaster(ctx context.Context, path string, client string, profileId *string, sessionId *string, sha string) (string, error) {
 	ctx = context.WithoutCancel(ctx)
 	stream, err := t.getFileStream(ctx, path, sha)
 	if err != nil {
 		return "", err
 	}
 	t.clientChan <- ClientInfo{
-		client: client,
-		sha:    sha,
-		path:   path,
-		video:  nil,
-		audio:  nil,
-		vhead:  -1,
-		ahead:  -1,
+		client:    client,
+		profileId: profileId,
+		sessionId: sessionId,
+		sha:       sha,
+		path:      path,
+		video:     nil,
+		audio:     nil,
+		vhead:     -1,
+		ahead:     -1,
 	}
 	return stream.GetMaster(ctx, client), nil
 }
@@ -74,6 +76,8 @@ func (t *Transcoder) GetVideoIndex(
 	video uint32,
 	quality VideoQuality,
 	client string,
+	profileId *string,
+	sessionId *string,
 	sha string,
 ) (string, error) {
 	ctx = context.WithoutCancel(ctx)
@@ -82,13 +86,15 @@ func (t *Transcoder) GetVideoIndex(
 		return "", err
 	}
 	t.clientChan <- ClientInfo{
-		client: client,
-		sha:    sha,
-		path:   path,
-		video:  &VideoKey{video, quality},
-		audio:  nil,
-		vhead:  -1,
-		ahead:  -1,
+		client:    client,
+		profileId: profileId,
+		sessionId: sessionId,
+		sha:       sha,
+		path:      path,
+		video:     &VideoKey{video, quality},
+		audio:     nil,
+		vhead:     -1,
+		ahead:     -1,
 	}
 	return stream.GetVideoIndex(ctx, video, quality, client)
 }
@@ -99,6 +105,8 @@ func (t *Transcoder) GetAudioIndex(
 	audio uint32,
 	quality AudioQuality,
 	client string,
+	profileId *string,
+	sessionId *string,
 	sha string,
 ) (string, error) {
 	ctx = context.WithoutCancel(ctx)
@@ -107,12 +115,14 @@ func (t *Transcoder) GetAudioIndex(
 		return "", err
 	}
 	t.clientChan <- ClientInfo{
-		client: client,
-		sha:    sha,
-		path:   path,
-		audio:  &AudioKey{audio, quality},
-		vhead:  -1,
-		ahead:  -1,
+		client:    client,
+		profileId: profileId,
+		sessionId: sessionId,
+		sha:       sha,
+		path:      path,
+		audio:     &AudioKey{audio, quality},
+		vhead:     -1,
+		ahead:     -1,
 	}
 	return stream.GetAudioIndex(ctx, audio, quality, client)
 }
@@ -124,6 +134,8 @@ func (t *Transcoder) GetVideoSegment(
 	quality VideoQuality,
 	segment int32,
 	client string,
+	profileId *string,
+	sessionId *string,
 	sha string,
 ) (string, error) {
 	ctx = context.WithoutCancel(ctx)
@@ -132,13 +144,15 @@ func (t *Transcoder) GetVideoSegment(
 		return "", err
 	}
 	t.clientChan <- ClientInfo{
-		client: client,
-		sha:    sha,
-		path:   path,
-		video:  &VideoKey{video, quality},
-		vhead:  segment,
-		audio:  nil,
-		ahead:  -1,
+		client:    client,
+		profileId: profileId,
+		sessionId: sessionId,
+		sha:       sha,
+		path:      path,
+		video:     &VideoKey{video, quality},
+		vhead:     segment,
+		audio:     nil,
+		ahead:     -1,
 	}
 	return stream.GetVideoSegment(ctx, video, quality, segment)
 }
@@ -150,6 +164,8 @@ func (t *Transcoder) GetAudioSegment(
 	quality AudioQuality,
 	segment int32,
 	client string,
+	profileId *string,
+	sessionId *string,
 	sha string,
 ) (string, error) {
 	ctx = context.WithoutCancel(ctx)
@@ -158,12 +174,14 @@ func (t *Transcoder) GetAudioSegment(
 		return "", err
 	}
 	t.clientChan <- ClientInfo{
-		client: client,
-		sha:    sha,
-		path:   path,
-		audio:  &AudioKey{audio, quality},
-		ahead:  segment,
-		vhead:  -1,
+		client:    client,
+		profileId: profileId,
+		sessionId: sessionId,
+		sha:       sha,
+		path:      path,
+		audio:     &AudioKey{audio, quality},
+		ahead:     segment,
+		vhead:     -1,
 	}
 	return stream.GetAudioSegment(ctx, audio, quality, segment)
 }
