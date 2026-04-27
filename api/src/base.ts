@@ -15,6 +15,7 @@ import { movies } from "./controllers/shows/movies";
 import { series } from "./controllers/shows/series";
 import { showsH } from "./controllers/shows/shows";
 import { staffH } from "./controllers/staff";
+import { streamsH } from "./controllers/streams";
 import { studiosH } from "./controllers/studios";
 import { videosMetadata } from "./controllers/video-metadata";
 import { videosReadH } from "./controllers/videos";
@@ -115,6 +116,7 @@ export const handlers = new Elysia({ prefix })
 		},
 		(app) =>
 			app
+				.use(streamsH)
 				.use(showsH)
 				.use(movies)
 				.use(series)

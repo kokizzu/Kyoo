@@ -25,7 +25,7 @@ type User struct {
 	// List of custom claims JWT created via get /jwt will have
 	Claims jwt.MapClaims `json:"claims" example:"isAdmin: true"`
 	// List of other login method available for this user. Access tokens wont be returned here.
-	Oidc map[string]OidcHandle `json:"oidc,omitempty"`
+	Oidc map[string]OidcHandle `json:"oidc"`
 }
 
 type OidcHandle struct {
