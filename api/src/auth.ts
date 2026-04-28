@@ -2,7 +2,7 @@ import { TypeCompiler } from "@sinclair/typebox/compiler";
 import { Value } from "@sinclair/typebox/value";
 import Elysia, { t } from "elysia";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { KError } from "./models/error";
+import { UserC } from "~/models/user";
 import type { Prettify } from "./utils";
 
 const jwtSecret = process.env.JWT_SECRET
@@ -90,24 +90,6 @@ export const auth = new Elysia({ name: "auth" })
 		},
 	})
 	.as("scoped");
-
-const User = t.Object({
-	id: t.String({ format: "uuid" }),
-	username: t.String(),
-	email: t.String({ format: "email" }),
-	createdDate: t.Date(),
-	lastSeen: t.Date(),
-	claims: t.Record(t.String(), t.Any()),
-	oidc: t.Record(
-		t.String(),
-		t.Object({
-			id: t.String(),
-			username: t.String(),
-			profileUrl: t.Nullable(t.String({ format: "url" })),
-		}),
-	),
-});
-const UserC = TypeCompiler.Compile(t.Union([User, KError]));
 
 export async function getUserInfo(
 	id: string,

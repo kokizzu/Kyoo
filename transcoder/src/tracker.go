@@ -7,13 +7,15 @@ import (
 )
 
 type ClientInfo struct {
-	client string
-	sha    string
-	path   string
-	video  *VideoKey
-	audio  *AudioKey
-	vhead  int32
-	ahead  int32
+	client    string
+	profileId *string
+	sessionId *string
+	sha       string
+	path      string
+	video     *VideoKey
+	audio     *AudioKey
+	vhead     int32
+	ahead     int32
 }
 
 type Tracker struct {
@@ -25,6 +27,7 @@ type Tracker struct {
 	lastUsage     map[string]time.Time
 	transcoder    *Transcoder
 	deletedStream chan string
+	snapshotReq   chan chan map[string]ClientInfo
 }
 
 func NewTracker(t *Transcoder) *Tracker {
@@ -33,6 +36,7 @@ func NewTracker(t *Transcoder) *Tracker {
 		visitDate:     make(map[string]time.Time),
 		lastUsage:     make(map[string]time.Time),
 		deletedStream: make(chan string),
+		snapshotReq:   make(chan chan map[string]ClientInfo),
 		transcoder:    t,
 	}
 	go ret.start()
@@ -59,6 +63,12 @@ func (t *Tracker) start() {
 			old, ok := t.clients[info.client]
 			// First fixup the info. Most routes ruturn partial infos
 			if ok && old.sha == info.sha {
+				if info.profileId == nil {
+					info.profileId = old.profileId
+				}
+				if info.sessionId == nil {
+					info.sessionId = old.sessionId
+				}
 				if info.video == nil {
 					info.video = old.video
 				}
@@ -98,6 +108,7 @@ func (t *Tracker) start() {
 		case <-timer:
 			timer = time.After(inactive_time)
 			// Purge old clients
+			stale := make([]ClientInfo, 0)
 			for client, date := range t.visitDate {
 				if time.Since(date) < inactive_time {
 					continue
@@ -106,7 +117,10 @@ func (t *Tracker) start() {
 				info := t.clients[client]
 				delete(t.clients, client)
 				delete(t.visitDate, client)
+				stale = append(stale, info)
+			}
 
+			for _, info := range stale {
 				if !t.KillStreamIfDead(info.sha, info.path) {
 					audio_cleanup := info.audio != nil && t.KillAudioIfDead(info.sha, info.path, *info.audio)
 					video_cleanup := info.video != nil && t.KillVideoIfDead(info.sha, info.path, *info.video)
@@ -117,6 +131,8 @@ func (t *Tracker) start() {
 			}
 		case path := <-t.deletedStream:
 			t.DestroyStreamIfOld(path)
+		case reply := <-t.snapshotReq:
+			reply <- t.cloneClients()
 		}
 	}
 }
@@ -143,7 +159,11 @@ func (t *Tracker) KillStreamIfDead(sha string, path string) bool {
 }
 
 func (t *Tracker) DestroyStreamIfOld(sha string) {
-	if time.Since(t.lastUsage[sha]) < 4*time.Hour {
+	lastUsage, ok := t.lastUsage[sha]
+	if !ok {
+		return
+	}
+	if time.Since(lastUsage) < 4*time.Hour {
 		return
 	}
 	stream, ok := t.transcoder.streams.GetAndRemove(sha)
@@ -238,4 +258,18 @@ func (t *Tracker) killOrphanedeheads(stream *Stream, is_video bool) {
 			stream.KillHead(encoder_id)
 		}
 	}
+}
+
+func (t *Tracker) SnapshotClients() map[string]ClientInfo {
+	ret := make(chan map[string]ClientInfo)
+	t.snapshotReq <- ret
+	return <-ret
+}
+
+func (t *Tracker) cloneClients() map[string]ClientInfo {
+	out := make(map[string]ClientInfo, len(t.clients))
+	for clientId, info := range t.clients {
+		out[clientId] = info
+	}
+	return out
 }
