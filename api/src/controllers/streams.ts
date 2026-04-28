@@ -80,6 +80,7 @@ const RunningStream = t.Object({
 
 export const streamsH = new Elysia({ tags: ["videos"] }).use(auth).get(
 	"videos/streams",
+	// @ts-expect-error idk
 	async ({
 		headers: { authorization, "accept-language": langs },
 		jwt: { sub, settings },

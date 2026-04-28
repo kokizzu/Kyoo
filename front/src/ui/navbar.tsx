@@ -5,6 +5,7 @@ import Close from "@material-symbols/svg-400/rounded/close.svg";
 import Login from "@material-symbols/svg-400/rounded/login.svg";
 import Logout from "@material-symbols/svg-400/rounded/logout.svg";
 import Person from "@material-symbols/svg-400/rounded/person-fill.svg";
+import Play from "@material-symbols/svg-400/rounded/play_arrow-fill.svg";
 import Search from "@material-symbols/svg-400/rounded/search-fill.svg";
 import Settings from "@material-symbols/svg-400/rounded/settings.svg";
 import { useIsFocused } from "@react-navigation/native";
@@ -70,6 +71,11 @@ export const NavbarLeft = () => {
 						label={t("admin.unmatched.label")}
 						icon={Search}
 						href="/admin/unmatched"
+					/>
+					<Menu.Item
+						label={t("admin.streams.title")}
+						icon={Play}
+						href="/admin/streams"
 					/>
 					<Menu.Item label="Users" icon={Admin} href="/admin/users" />
 				</Menu>

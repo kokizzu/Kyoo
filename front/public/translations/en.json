@@ -388,6 +388,22 @@
 			"progress-pending": "{{count}} pending",
 			"progress-failed": "{{count}} failed"
 		},
+		"streams": {
+			"title": "Streams",
+			"subtitle": "Currently playing videos and active transcodes.",
+			"empty": "No stream is running right now.",
+			"guest": "Guest",
+			"viewers": "Viewers",
+			"noActiveViewer": "No active viewer",
+			"watching": "Watching {{quality}}",
+			"none": "None",
+			"runningVideoTranscodes": "Video transcodes",
+			"runningAudioTranscodes": "Audio transcodes",
+			"progress": {
+				"available": "Available",
+				"transcoding": "Transcoding"
+			}
+		},
 		"add": {
 			"title": "Add to library",
 			"searchPlaceholder": "Search for a movie or series...",

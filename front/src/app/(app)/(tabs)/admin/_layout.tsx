@@ -73,6 +73,12 @@ export default function AdminTabsLayout() {
 				}}
 			/>
 			<TopTabs.Screen
+				name="streams"
+				options={{
+					tabBarLabel: t("admin.streams.title"),
+				}}
+			/>
+			<TopTabs.Screen
 				name="users"
 				options={{
 					tabBarLabel: t("admin.users.label"),
