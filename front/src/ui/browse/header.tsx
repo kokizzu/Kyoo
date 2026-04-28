@@ -198,8 +198,8 @@ export const BrowseSettings = ({
 
 	return (
 		<View>
-			<View className="mx-8 my-2 flex-1 flex-row flex-wrap items-center justify-between">
-				<View className="flex-row gap-3">
+			<View className="my-2 flex-1 flex-row flex-wrap items-center justify-between sm:mx-8">
+				<View className="flex-1 flex-row flex-wrap gap-3">
 					<Menu
 						Trigger={MediaTypeTrigger}
 						mediaType={mediaType as keyof typeof MediaTypeIcons}
@@ -359,7 +359,7 @@ export const BrowseSettings = ({
 				excludedGenres.length > 0 ||
 				studioSlugs.length > 0 ||
 				staffSlugs.length > 0) && (
-				<View className="mx-8 mb-2 flex-row flex-wrap gap-2">
+				<View className="mx-8 mb-2 flex-1 flex-row flex-wrap gap-2">
 					{mediaType !== "all" && (
 						<FilterChip
 							label={t(
