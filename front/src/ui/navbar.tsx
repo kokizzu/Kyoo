@@ -104,9 +104,9 @@ const NavbarLink = <AsProps = ComponentProps<typeof A>>({
 		>
 			<Icon
 				icon={icon}
-				className="fill-slate-200 sm:hidden dark:fill-slate-200"
+				className="fill-slate-200 md:hidden dark:fill-slate-200"
 			/>
-			<Text className="font-headers text-lg text-slate-200 uppercase max-sm:hidden dark:text-slate-200">
+			<Text className="font-headers text-lg text-slate-200 uppercase max-md:hidden dark:text-slate-200">
 				{label}
 			</Text>
 		</As>
@@ -141,6 +141,7 @@ export const NavbarRight = () => {
 		<View className="shrink flex-row items-center">
 			<SearchBar
 				key={path}
+				overlayOnSmallScreen
 				value={path === "/browse" ? q : undefined}
 				onChangeText={(query) => {
 					if (path === "/browse") {
@@ -168,8 +169,13 @@ export const SearchBar = ({
 	className,
 	containerClassName,
 	forceExpand,
+	overlayOnSmallScreen,
 	...props
-}: TextInputProps & { forceExpand?: boolean; containerClassName?: string }) => {
+}: TextInputProps & {
+	forceExpand?: boolean;
+	containerClassName?: string;
+	overlayOnSmallScreen?: boolean;
+}) => {
 	const { t } = useTranslation();
 	const [_expanded, setExpanded] = useState(!!value);
 	const inputRef = useRef<TextInput>(null);
@@ -181,6 +187,10 @@ export const SearchBar = ({
 			className={cn(
 				"mr-2 flex-row items-center overflow-hidden rounded-full p-0 pl-4",
 				expanded ? "bg-slate-100 dark:bg-slate-800" : "bg-transparent",
+				Platform.OS === "web" &&
+					overlayOnSmallScreen &&
+					expanded &&
+					"max-sm:fixed max-sm:top-2 max-sm:right-1 max-sm:left-1 max-sm:z-50 max-sm:mr-0",
 				containerClassName,
 			)}
 			style={[
@@ -207,7 +217,7 @@ export const SearchBar = ({
 				placeholder={t("navbar.search")}
 				textAlignVertical="center"
 				className={cn(
-					"h-full flex-1 font-sans text-base outline-0",
+					"h-full min-w-0 flex-1 font-sans text-base outline-0",
 					"align-middle text-slate-600 dark:text-slate-200",
 					!expanded && "w-0 grow-0",
 					className,
@@ -225,7 +235,6 @@ export const SearchBar = ({
 				//  https://github.com/react-navigation/react-navigation/issues/12274
 				//  https://github.com/react-navigation/react-navigation/issues/12667
 				onPressIn={() => {
-					console.log(expanded);
 					if (expanded) {
 						inputRef.current?.blur();
 						inputRef.current?.clear();
@@ -234,7 +243,7 @@ export const SearchBar = ({
 					} else {
 						setExpanded(true);
 						// Small delay to allow animation to start before focusing
-						setTimeout(() => inputRef.current?.focus(), 100);
+						setTimeout(() => inputRef.current?.focus(), 200);
 					}
 				}}
 				iconClassName={cn(
