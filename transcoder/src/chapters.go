@@ -156,6 +156,13 @@ func mergeChapters(info *MediaInfo, candidates []Chapter) []Chapter {
 				merged = true
 				break
 			}
+
+			if cand.StartTime-MergeWindowSec < chapters[i].StartTime &&
+				cand.EndTime+MergeWindowSec > chapters[i].EndTime &&
+				cand.Type == chapters[i].Type {
+				// prefer the existing match instead of splitting it into two.
+				merged = true
+			}
 		}
 
 		if !merged {
