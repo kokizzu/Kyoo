@@ -106,6 +106,9 @@ export const showsH = new Elysia({ prefix: "/shows", tags: ["shows"] })
 			jwt: { sub, settings },
 		}) => {
 			const langs = processLanguages(languages);
+
+			if (query) ignoreInCollection = false;
+
 			const items = await getShows({
 				limit,
 				after,
