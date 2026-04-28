@@ -92,7 +92,12 @@ export const appWs = baseWs.ws("/ws", {
 		const handler = actionMap[action as keyof typeof actionMap];
 		for (const perm of handler.permissions ?? []) {
 			if (!ws.data.jwt.permissions.includes(perm)) {
-				return ws.close(3000, `Missing permission: '${perm}'.`);
+				ws.send({
+					action: action,
+					status: 403,
+					message: `Missing permission: '${perm}'.`,
+				});
+				return;
 			}
 		}
 		await handler.message(ws as any, body as any);
