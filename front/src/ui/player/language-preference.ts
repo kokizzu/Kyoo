@@ -17,7 +17,7 @@ export const useLanguagePreference = (player: VideoPlayer, slug: string) => {
 	useEvent(player, "onAudioTrackChange", () => {
 		if (!audios?.length) return;
 		const selected =
-			audios?.[player.getAvailableTextTracks().findIndex((x) => x.selected)];
+			audios?.[player.getAvailableAudioTracks().findIndex((x) => x.selected)];
 		if (!selected) return;
 		aud.current = { idx: selected.index, lang: selected.language };
 	});
