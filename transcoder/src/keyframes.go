@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,9 +17,10 @@ import (
 )
 
 const (
-	KeyframeVersion        = 1
+	KeyframeVersion        = 2
 	minParsedKeyframeTime  = 5.0 // seconds
 	minParsedKeyframeCount = 3
+	audioSegmentDuration   = 4.0
 )
 
 type Keyframe struct {
@@ -174,14 +176,14 @@ func (s *MetadataService) GetKeyframes(ctx context.Context, info *MediaInfo, isV
 	return set(kf, nil)
 }
 
-// Retrive video's keyframes and store them inside the kf var.
-// Returns when all key frames are retrived (or an error occurs)
-// info.ready.Done() is called when more than 100 are retrived (or extraction is done)
+// Retrieve video's keyframes and store them inside the kf var.
+// Returns when all key frames are retrieved (or an error occurs)
+// info.ready.Done() is called when more than 100 are retrieved (or extraction is done)
 func getVideoKeyframes(ctx context.Context, path string, video_idx uint32, kf *Keyframe) error {
 	defer utils.PrintExecTime(ctx, "ffprobe keyframe analysis for %s video n%d", path, video_idx)()
 	// run ffprobe to return all IFrames, IFrames are points where we can split the video in segments.
 	// We ask ffprobe to return the time of each frame and it's flags
-	// We could ask it to return only i-frames (keyframes) with the -skip_frame nokey but using it is extremly slow
+	// We could ask it to return only i-frames (keyframes) with the -skip_frame nokey but using it is extremely slow
 	// since ffmpeg parses every frames when this flag is set.
 	cmd := exec.CommandContext(
 		ctx,
@@ -202,7 +204,7 @@ func getVideoKeyframes(ctx context.Context, path string, video_idx uint32, kf *K
 	if err != nil {
 		return err
 	}
-	// we don't care about the result but await it for tracess.
+	// we don't care about the result but await it for traces.
 	go cmd.Wait()
 
 	scanner := bufio.NewScanner(stdout)
@@ -210,7 +212,7 @@ func getVideoKeyframes(ctx context.Context, path string, video_idx uint32, kf *K
 	ret := make([]float64, 0, 1000)
 	limit := 100
 	done := 0
-	indexNotificationComplete := false
+	notified := false
 
 	// sometimes, videos can start at a timing greater than 0:00. We need to take that into account
 	// and only list keyframes that come after the start of the video (without that, our segments count
@@ -251,8 +253,8 @@ func getVideoKeyframes(ctx context.Context, path string, video_idx uint32, kf *K
 
 		ret = append(ret, fpts)
 
-		shouldNotifyIndexers := !indexNotificationComplete && fpts >= minParsedKeyframeTime && len(ret) >= minParsedKeyframeCount
-		if len(ret) == limit || shouldNotifyIndexers {
+		shouldNotify := !notified && fpts >= minParsedKeyframeTime && len(ret) >= minParsedKeyframeCount
+		if len(ret) == limit || shouldNotify {
 			kf.add(ret)
 			if done == 0 {
 				kf.info.ready.Done()
@@ -260,12 +262,10 @@ func getVideoKeyframes(ctx context.Context, path string, video_idx uint32, kf *K
 				limit = 500
 			}
 			done += limit
-			// clear the array without reallocing it
+			// clear the array without reallocating it
 			ret = ret[:0]
 
-			if shouldNotifyIndexers {
-				indexNotificationComplete = true
-			}
+			notified = true
 		}
 	}
 	kf.add(ret)
@@ -276,45 +276,22 @@ func getVideoKeyframes(ctx context.Context, path string, video_idx uint32, kf *K
 	return nil
 }
 
-const DummyKeyframeDuration = float64(4)
-
-// we can pretty much cut audio at any point so no need to get specific frames, just cut every 4s
+// Audio keyframes are generated from packet timestamps, then snapped to a target cadence.
+// This keeps segment boundaries packet-aligned (important for -c:a copy) while still
+// aiming for roughly 4s segments.
 func getAudioKeyframes(ctx context.Context, info *MediaInfo, audio_idx uint32, kf *Keyframe) error {
 	defer utils.PrintExecTime(ctx, "ffprobe keyframe analysis for %s audio n%d", info.Path, audio_idx)()
-	// Format's duration CAN be different than audio's duration. To make sure we do not
-	// miss a segment or make one more, we need to check the audio's duration.
-	//
-	// Since fetching the duration requires reading packets and is SLOW, we start by generating
-	// keyframes until a reasonably safe point of the file (if the format has a 20min duration, audio
-	// probably has a close duration).
-	// You can read why duration retrieval is slow on the comment below.
-	safe_duration := info.Duration - 20
-	segment_count := int((safe_duration / DummyKeyframeDuration) + 1)
-	if segment_count > 0 {
-		kf.Keyframes = make([]float64, segment_count)
-		for i := 0; i < segment_count; i += 1 {
-			kf.Keyframes[i] = float64(i) * DummyKeyframeDuration
-		}
-		kf.info.ready.Done()
-	} else {
-		segment_count = 0
-	}
-
-	// Some formats DO NOT contain a duration metadata, we need to manually fetch it
-	// from the packets.
-	//
-	// We could use the same command to retrieve all packets and know when we can cut PRECISELY
-	// but since packets always contain only a few ms we don't need this precision.
+	// We need packet-level timestamps so boundaries are valid even with stream copy.
+	// Naive fixed boundaries (0,4,8,...) can drift since packets aren't necessary split at such timings
+	// causing overlaps/gaps at head boundaries.
 	cmd := exec.CommandContext(
 		ctx,
 		"ffprobe",
+		"-loglevel", "error",
 		"-select_streams", fmt.Sprintf("a:%d", audio_idx),
 		"-show_entries", "packet=pts_time",
 		// some avi files don't have pts, we use this to ask ffmpeg to generate them (it uses the dts under the hood)
 		"-fflags", "+genpts",
-		// We use a read_interval LARGER than the file (at least we estimate)
-		// This allows us to only decode the LAST packets
-		"-read_intervals", fmt.Sprintf("%f", info.Duration+10_000),
 		"-of", "csv=print_section=0",
 		info.Path,
 	)
@@ -326,42 +303,53 @@ func getAudioKeyframes(ctx context.Context, info *MediaInfo, audio_idx uint32, k
 	if err != nil {
 		return err
 	}
-	// we don't care about the result but await it for tracess.
+	// we don't care about the result but await it for traces.
 	go cmd.Wait()
 
 	scanner := bufio.NewScanner(stdout)
-	var duration float64
+
+	ret := make([]float64, 0, 200)
+	limit := 100
+	done := 0
+	notified := false
+	prevPts := math.Inf(-1)
+
 	for scanner.Scan() {
 		pts := scanner.Text()
 		if pts == "" || pts == "N/A" {
 			continue
 		}
 
-		duration, err = strconv.ParseFloat(pts, 64)
+		fpts, err := strconv.ParseFloat(pts, 64)
 		if err != nil {
 			return err
 		}
 
-	}
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-	if duration <= 0 {
-		return errors.New("could not find audio's duration")
-	}
-
-	new_seg_count := int((duration / DummyKeyframeDuration) + 1)
-	if new_seg_count > segment_count {
-		new_segments := make([]float64, new_seg_count-segment_count)
-		for i := segment_count; i < new_seg_count; i += 1 {
-			new_segments[i-segment_count] = float64(i) * DummyKeyframeDuration
+		if fpts-prevPts < audioSegmentDuration {
+			continue
 		}
-		kf.add(new_segments)
-		if segment_count == 0 {
-			kf.info.ready.Done()
+
+		ret = append(ret, fpts)
+		prevPts = fpts
+		shouldNotify := !notified && fpts >= minParsedKeyframeTime && len(ret) >= minParsedKeyframeCount
+		if len(ret) == limit || shouldNotify {
+			kf.add(ret)
+			if done == 0 {
+				kf.info.ready.Done()
+			} else if done >= 500 {
+				limit = 500
+			}
+			done += limit
+			// clear the array without reallocating it
+			ret = ret[:0]
+
+			notified = true
 		}
 	}
-
+	kf.add(ret)
 	kf.IsDone = true
+	if done == 0 {
+		kf.info.ready.Done()
+	}
 	return nil
 }
