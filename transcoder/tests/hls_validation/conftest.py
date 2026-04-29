@@ -32,7 +32,9 @@ class TestConfig:
 def test_config() -> TestConfig:
     media_path = os.getenv("TRANSCODER_MEDIA_PATH", "").strip()
     if not media_path:
-        raise pytest.UsageError("TRANSCODER_MEDIA_PATH is required (absolute path as seen by transcoder)")
+        raise pytest.UsageError(
+            "TRANSCODER_MEDIA_PATH is required (absolute path as seen by transcoder)"
+        )
 
     api_key = os.getenv("TRANSCODER_API_KEY", "").strip()
     headers: dict[str, str] = {}
@@ -40,12 +42,18 @@ def test_config() -> TestConfig:
         headers["X-Api-Key"] = api_key
 
     return TestConfig(
-        base_url=os.getenv("TRANSCODER_BASE_URL", "http://localhost:7666/video").strip(),
+        base_url=os.getenv(
+            "TRANSCODER_BASE_URL", "http://localhost:7666/video"
+        ).strip(),
         media_path=media_path,
         client_prefix=os.getenv("TRANSCODER_CLIENT_ID_PREFIX", "hls-test").strip(),
         max_segments=max(3, int(os.getenv("TRANSCODER_MAX_SEGMENTS", "14"))),
-        max_variant_playlists=max(1, int(os.getenv("TRANSCODER_MAX_VARIANT_PLAYLISTS", "3"))),
-        max_audio_playlists=max(0, int(os.getenv("TRANSCODER_MAX_AUDIO_PLAYLISTS", "2"))),
+        max_variant_playlists=max(
+            1, int(os.getenv("TRANSCODER_MAX_VARIANT_PLAYLISTS", "3"))
+        ),
+        max_audio_playlists=max(
+            0, int(os.getenv("TRANSCODER_MAX_AUDIO_PLAYLISTS", "2"))
+        ),
         timeout_seconds=float(os.getenv("TRANSCODER_TIMEOUT_SECONDS", "40")),
         headers=headers,
     )
@@ -69,13 +77,17 @@ def client_id(test_config: TestConfig) -> str:
 
 @pytest.fixture
 def master_context(test_config: TestConfig, client_id: str) -> dict:
-    master_url = build_master_url(test_config.base_url, test_config.media_path, client_id)
+    master_url = build_master_url(
+        test_config.base_url, test_config.media_path, client_id
+    )
     master_text = fetch_text(
         master_url,
         timeout_seconds=test_config.timeout_seconds,
         headers=test_config.headers,
     )
-    variants, audios = parse_master_playlist(master_text, master_url=master_url, client_id=client_id)
+    variants, audios = parse_master_playlist(
+        master_text, master_url=master_url, client_id=client_id
+    )
 
     if not variants:
         raise AssertionError(f"No variants discovered in master playlist: {master_url}")
@@ -100,7 +112,9 @@ def media_playlists(master_context: dict, test_config: TestConfig) -> dict:
             timeout_seconds=test_config.timeout_seconds,
             headers=test_config.headers,
         )
-        variant_playlists.append(parse_media_playlist(text, variant.url, master_context["client_id"]))
+        variant_playlists.append(
+            parse_media_playlist(text, variant.url, master_context["client_id"])
+        )
 
     audio_playlists = []
     for audio in master_context["audios"][: test_config.max_audio_playlists]:
@@ -109,7 +123,9 @@ def media_playlists(master_context: dict, test_config: TestConfig) -> dict:
             timeout_seconds=test_config.timeout_seconds,
             headers=test_config.headers,
         )
-        audio_playlists.append(parse_media_playlist(text, audio.url, master_context["client_id"]))
+        audio_playlists.append(
+            parse_media_playlist(text, audio.url, master_context["client_id"])
+        )
 
     return {
         "variants": variant_playlists,

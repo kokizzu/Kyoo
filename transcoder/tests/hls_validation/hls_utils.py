@@ -31,6 +31,7 @@ class AudioRendition:
 class MediaPlaylist:
     url: str
     segment_urls: list[str]
+    segment_durations: list[float]
     map_url: str | None
 
 
@@ -51,7 +52,16 @@ def with_query_param(url: str, key: str, value: str) -> str:
     query = dict(parse_qsl(parsed.query, keep_blank_values=True))
     query[key] = value
     new_query = urlencode(query)
-    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+    return urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment,
+        )
+    )
 
 
 def build_master_url(base_url: str, media_path: str, client_id: str) -> str:
@@ -61,7 +71,9 @@ def build_master_url(base_url: str, media_path: str, client_id: str) -> str:
     return with_query_param(master, "clientId", client_id)
 
 
-def fetch_text(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> str:
+def fetch_text(
+    url: str, timeout_seconds: float, headers: dict[str, str] | None = None
+) -> str:
     req_headers = {"Accept": "application/vnd.apple.mpegurl,text/plain,*/*"}
     if headers:
         req_headers.update(headers)
@@ -70,7 +82,9 @@ def fetch_text(url: str, timeout_seconds: float, headers: dict[str, str] | None 
         return response.read().decode("utf-8")
 
 
-def fetch_binary(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> bytes:
+def fetch_binary(
+    url: str, timeout_seconds: float, headers: dict[str, str] | None = None
+) -> bytes:
     req = Request(url, headers=headers or {})
     with urlopen(req, timeout=timeout_seconds) as response:
         return response.read()
@@ -103,7 +117,9 @@ def _parse_attrs(line: str) -> dict[str, str]:
     return out
 
 
-def parse_master_playlist(text: str, master_url: str, client_id: str) -> tuple[list[PlaylistVariant], list[AudioRendition]]:
+def parse_master_playlist(
+    text: str, master_url: str, client_id: str
+) -> tuple[list[PlaylistVariant], list[AudioRendition]]:
     variants: list[PlaylistVariant] = []
     audios: list[AudioRendition] = []
 
@@ -123,7 +139,9 @@ def parse_master_playlist(text: str, master_url: str, client_id: str) -> tuple[l
         elif line.startswith("#EXT-X-MEDIA:"):
             attrs = _parse_attrs(line)
             if attrs.get("TYPE") == "AUDIO" and "URI" in attrs:
-                url = with_query_param(urljoin(master_url, attrs["URI"]), "clientId", client_id)
+                url = with_query_param(
+                    urljoin(master_url, attrs["URI"]), "clientId", client_id
+                )
                 audios.append(AudioRendition(url=url, attrs=attrs))
         i += 1
 
@@ -133,20 +151,43 @@ def parse_master_playlist(text: str, master_url: str, client_id: str) -> tuple[l
 def parse_media_playlist(text: str, playlist_url: str, client_id: str) -> MediaPlaylist:
     map_url: str | None = None
     segment_urls: list[str] = []
+    segment_durations: list[float] = []
+    pending_duration: float | None = None
 
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     for line in lines:
+        if line.startswith("#EXTINF:"):
+            payload = line.split(":", 1)[1]
+            duration_raw = payload.split(",", 1)[0].strip()
+            try:
+                pending_duration = float(duration_raw)
+            except ValueError:
+                pending_duration = None
+            continue
         if line.startswith("#EXT-X-MAP:"):
             attrs = _parse_attrs(line)
             map_uri = attrs.get("URI")
             if map_uri:
-                map_url = with_query_param(urljoin(playlist_url, map_uri), "clientId", client_id)
+                map_url = with_query_param(
+                    urljoin(playlist_url, map_uri), "clientId", client_id
+                )
             continue
         if line.startswith("#"):
             continue
-        segment_urls.append(with_query_param(urljoin(playlist_url, line), "clientId", client_id))
+        segment_urls.append(
+            with_query_param(urljoin(playlist_url, line), "clientId", client_id)
+        )
+        segment_durations.append(
+            pending_duration if pending_duration is not None else 0.0
+        )
+        pending_duration = None
 
-    return MediaPlaylist(url=playlist_url, segment_urls=segment_urls, map_url=map_url)
+    return MediaPlaylist(
+        url=playlist_url,
+        segment_urls=segment_urls,
+        segment_durations=segment_durations,
+        map_url=map_url,
+    )
 
 
 class ByteCache:
@@ -154,7 +195,9 @@ class ByteCache:
         self._cache: dict[str, bytes] = {}
         self._lock = threading.Lock()
 
-    def get(self, url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> bytes:
+    def get(
+        self, url: str, timeout_seconds: float, headers: dict[str, str] | None = None
+    ) -> bytes:
         with self._lock:
             if url in self._cache:
                 return self._cache[url]
@@ -183,7 +226,9 @@ def _probe_packets(path: Path, stream_selector: str) -> list[dict]:
     return data.get("packets", [])
 
 
-def _timeline_from_packets(segment_url: str, stream_kind: str, packets: list[dict]) -> SegmentTimeline:
+def _timeline_from_packets(
+    segment_url: str, stream_kind: str, packets: list[dict]
+) -> SegmentTimeline:
     pts_values = [float(p["pts_time"]) for p in packets if "pts_time" in p]
     dts_values = [float(p["dts_time"]) for p in packets if "dts_time" in p]
     starts = pts_values or dts_values
@@ -193,12 +238,18 @@ def _timeline_from_packets(segment_url: str, stream_kind: str, packets: list[dic
     start = min(starts)
     end_pts = max(starts)
 
-    durations = [float(p["duration_time"]) for p in packets if "duration_time" in p and float(p["duration_time"]) > 0]
+    durations = [
+        float(p["duration_time"])
+        for p in packets
+        if "duration_time" in p and float(p["duration_time"]) > 0
+    ]
     default_step = median(durations) if durations else 0.04
     tail = durations[-1] if durations else default_step
     end = end_pts + max(tail, default_step)
 
-    return SegmentTimeline(segment_url=segment_url, stream_kind=stream_kind, start=start, end=end)
+    return SegmentTimeline(
+        segment_url=segment_url, stream_kind=stream_kind, start=start, end=end
+    )
 
 
 def probe_segment_timeline(
@@ -220,7 +271,9 @@ def probe_segment_timeline(
                 if attempt == retries:
                     break
                 time.sleep(retry_delay_seconds * (attempt + 1))
-        raise AssertionError(f"Failed to fetch segment after retries: {url} ({last_err})")
+        raise AssertionError(
+            f"Failed to fetch segment after retries: {url} ({last_err})"
+        )
 
     segment_bytes = get_with_retry(segment_url)
     prefix = get_with_retry(map_url) if map_url else b""

@@ -13,13 +13,17 @@ from .hls_utils import (
 
 
 def _load_variant_playlists_for_client(test_config, client_id: str):
-    master_url = build_master_url(test_config.base_url, test_config.media_path, client_id)
+    master_url = build_master_url(
+        test_config.base_url, test_config.media_path, client_id
+    )
     master_text = fetch_text(
         master_url,
         timeout_seconds=test_config.timeout_seconds,
         headers=test_config.headers,
     )
-    variants, _ = parse_master_playlist(master_text, master_url=master_url, client_id=client_id)
+    variants, _ = parse_master_playlist(
+        master_text, master_url=master_url, client_id=client_id
+    )
     unique_variants = list({v.url: v for v in variants}.values())
     playlists = []
     for variant in unique_variants:
@@ -32,7 +36,9 @@ def _load_variant_playlists_for_client(test_config, client_id: str):
     return playlists
 
 
-def test_abr_switching_has_no_timeline_holes(master_context: dict, test_config, byte_cache) -> None:
+def test_abr_switching_has_no_timeline_holes(
+    master_context: dict, test_config, byte_cache
+) -> None:
     playlists = []
     for variant in master_context["variants"]:
         text = fetch_text(
@@ -40,7 +46,9 @@ def test_abr_switching_has_no_timeline_holes(master_context: dict, test_config, 
             timeout_seconds=test_config.timeout_seconds,
             headers=test_config.headers,
         )
-        playlists.append(parse_media_playlist(text, variant.url, master_context["client_id"]))
+        playlists.append(
+            parse_media_playlist(text, variant.url, master_context["client_id"])
+        )
 
     if len(playlists) < 2:
         return
@@ -71,7 +79,9 @@ def test_abr_switching_has_no_timeline_holes(master_context: dict, test_config, 
     )
 
 
-def test_seek_storm_contiguous_windows_stay_continuous(media_playlists: dict, test_config, byte_cache) -> None:
+def test_seek_storm_contiguous_windows_stay_continuous(
+    media_playlists: dict, test_config, byte_cache
+) -> None:
     playlist = media_playlists["variants"][0]
     count = len(playlist.segment_urls)
     assert count >= 8, f"Need at least 8 segments for seek test, got {count}"
@@ -106,7 +116,9 @@ def test_seek_storm_contiguous_windows_stay_continuous(media_playlists: dict, te
             )
 
 
-def test_concurrent_clients_can_seek_without_breaking_timeline(test_config, byte_cache) -> None:
+def test_concurrent_clients_can_seek_without_breaking_timeline(
+    test_config, byte_cache
+) -> None:
     worker_count = 3
 
     def worker(idx: int) -> None:
@@ -118,7 +130,9 @@ def test_concurrent_clients_can_seek_without_breaking_timeline(test_config, byte
         playlist = playlists[0]
         count = len(playlist.segment_urls)
         if count < 6:
-            raise AssertionError(f"Need at least 6 segments for concurrent worker, got {count}")
+            raise AssertionError(
+                f"Need at least 6 segments for concurrent worker, got {count}"
+            )
 
         pattern = [0, count // 3, (2 * count) // 3, 1, 2, 3]
         timelines = []

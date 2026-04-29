@@ -3,7 +3,9 @@ from __future__ import annotations
 from .hls_utils import assert_no_large_gaps_or_overlaps, probe_segment_timeline
 
 
-def test_variant_playlists_have_continuous_timeline(media_playlists: dict, test_config, byte_cache) -> None:
+def test_variant_playlists_have_continuous_timeline(
+    media_playlists: dict, test_config, byte_cache
+) -> None:
     playlists = media_playlists["variants"] + media_playlists["audios"]
 
     for playlist in playlists:

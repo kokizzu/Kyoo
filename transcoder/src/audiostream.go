@@ -39,6 +39,9 @@ func (as *AudioStream) getOutPath(encoder_id int) string {
 }
 
 func (as *AudioStream) getFlags() Flags {
+	if as.quality == AOriginal {
+		return AudioF | CopyF
+	}
 	return AudioF
 }
 
