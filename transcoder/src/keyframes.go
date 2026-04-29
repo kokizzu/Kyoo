@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,7 +19,6 @@ const (
 	KeyframeVersion        = 2
 	minParsedKeyframeTime  = 5.0 // seconds
 	minParsedKeyframeCount = 3
-	audioSegmentDuration   = 4.0
 )
 
 type Keyframe struct {
@@ -292,6 +290,15 @@ func getAudioKeyframes(ctx context.Context, info *MediaInfo, audio_idx uint32, k
 		"-show_entries", "packet=pts_time",
 		// some avi files don't have pts, we use this to ask ffmpeg to generate them (it uses the dts under the hood)
 		"-fflags", "+genpts",
+		"-read_intervals", strings.Join(
+			Map(
+				make([]string, int(info.Duration/4)+1),
+				func(_ string, idx int) string {
+					return fmt.Sprintf("%v%%+#1", idx*4)
+				},
+			),
+			",",
+		),
 		"-of", "csv=print_section=0",
 		info.Path,
 	)
@@ -312,7 +319,6 @@ func getAudioKeyframes(ctx context.Context, info *MediaInfo, audio_idx uint32, k
 	limit := 100
 	done := 0
 	notified := false
-	prevPts := math.Inf(-1)
 
 	for scanner.Scan() {
 		pts := scanner.Text()
@@ -325,12 +331,7 @@ func getAudioKeyframes(ctx context.Context, info *MediaInfo, audio_idx uint32, k
 			return err
 		}
 
-		if fpts-prevPts < audioSegmentDuration {
-			continue
-		}
-
 		ret = append(ret, fpts)
-		prevPts = fpts
 		shouldNotify := !notified && fpts >= minParsedKeyframeTime && len(ret) >= minParsedKeyframeCount
 		if len(ret) == limit || shouldNotify {
 			kf.add(ret)
