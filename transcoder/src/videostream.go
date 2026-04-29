@@ -74,11 +74,15 @@ func (vs *VideoStream) getTranscodeArgs(segments string) []string {
 		width := int32(float64(vs.quality.Height()) / float64(vs.video.Height) * float64(vs.video.Width))
 		// force a width that is a multiple of two else some apps behave badly.
 		width = closestMultiple(width, 2)
-		args = append(args,
-			"-vf", fmt.Sprintf(Settings.HwAccel.ScaleFilter, width, vs.quality.Height()),
-		)
+		if Settings.HwAccel.ScaleFilter != "" {
+			args = append(args,
+				"-vf", fmt.Sprintf(Settings.HwAccel.ScaleFilter, width, vs.quality.Height()),
+			)
+		}
 	} else {
-		args = append(args, "-vf", Settings.HwAccel.NoResizeFilter)
+		if Settings.HwAccel.NoResizeFilter != "" {
+			args = append(args, "-vf", Settings.HwAccel.NoResizeFilter)
+		}
 
 		// NoResize doesn't have bitrate info, fallback to a know quality higher or equal.
 		for _, q := range VideoQualities {
