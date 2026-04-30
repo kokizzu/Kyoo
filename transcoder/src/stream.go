@@ -22,6 +22,7 @@ type Flags int32
 const (
 	AudioF   Flags = 1 << 0
 	VideoF   Flags = 1 << 1
+	CopyF    Flags = 1 << 2
 	Transmux Flags = 1 << 3
 )
 
@@ -159,6 +160,8 @@ func (ts *Stream) run(ctx context.Context, start int32) error {
 
 	slog.InfoContext(ctx, "starting transcode", "encoderId", encoder_id, "path", ts.file.Info.Path, "start", start, "end", end, "length", length)
 
+	copy_audio := ts.handle.getFlags()&(AudioF|CopyF) == (AudioF | CopyF)
+
 	// Include both the start and end delimiter because -ss and -to are not accurate
 	// Having an extra segment allows us to cut precisely the segments we want with the
 	// -f segment that does cut the begining and the end at the keyframe like asked
@@ -169,7 +172,11 @@ func (ts *Stream) run(ctx context.Context, start int32) error {
 		//  - Audio: we need context before the starting point, without that ffmpeg doesnt know what to do and leave ~100ms of silence
 		//  - Video: if a segment is really short (between 20 and 100ms), the padding given in the else block bellow is not enough and
 		// the previous segment is played another time. the -segment_times is way more precise so it does not do the same with this one
-		start_segment = start - 1
+		if !copy_audio {
+			// For copied audio we rely on output-side seeking to avoid drift between
+			// independent invocations. Start exactly at the requested segment.
+			start_segment = start - 1
+		}
 		if ts.handle.getFlags()&AudioF != 0 {
 			start_ref = ts.keyframes.Get(start_segment)
 		} else {
@@ -210,7 +217,9 @@ func (ts *Stream) run(ctx context.Context, start int32) error {
 		args = append(args, Settings.HwAccel.DecodeFlags...)
 	}
 
-	if start_ref != 0 {
+	// in `copy_audio` mode, we use `-ss` and `-t` as an output flag.
+	// without this, seeking is NOT precise and we can have an overlap/gap.
+	if start_ref != 0 && !copy_audio {
 		if ts.handle.getFlags()&VideoF != 0 {
 			// This is the default behavior in transmux mode and needed to force pre/post segment to work
 			// This must be disabled when processing only audio because it creates gaps in audio
@@ -221,7 +230,7 @@ func (ts *Stream) run(ctx context.Context, start int32) error {
 		)
 	}
 	// do not include -to if we want the file to go to the end
-	if end+1 < length {
+	if end+1 < length && !copy_audio {
 		// sometimes, the duration is shorter than expected (only during transcode it seems)
 		// always include more and use the -f segment to split the file where we want
 		end_ref := ts.keyframes.Get(end + 1)
@@ -240,9 +249,6 @@ func (ts *Stream) run(ctx context.Context, start int32) error {
 		// since this is better than errorring or not supporting transmux at all, i'll keep it here for now.
 		"-fflags", "+genpts",
 		"-i", ts.file.Info.Path,
-		// this makes behaviors consistent between soft and hardware decodes.
-		// this also means that after a -ss 50, the output video will start at 50s
-		"-start_at_zero",
 		// for hls streams, -copyts is mandatory
 		"-copyts",
 		// this makes output file start at 0s instead of a random delay + the -ss value
@@ -252,6 +258,31 @@ func (ts *Stream) run(ctx context.Context, start int32) error {
 		// to keep in mind when debugging
 		"-muxdelay", "0",
 	)
+	if copy_audio {
+		if start_ref != 0 {
+			args = append(args,
+				"-ss", fmt.Sprintf("%.6f", start_ref),
+			)
+		}
+		if end+1 < length {
+			duration := ts.keyframes.Get(end+1) - ts.keyframes.Get(start_segment)
+			args = append(args,
+				"-t", fmt.Sprintf("%.6f", duration),
+			)
+		}
+		args = append(args, "-copytb", "1")
+		if start_ref != 0 {
+			// output-side seek on copied audio can rebase timestamps at 0 for each invocation.
+			// reapply an absolute offset so all lazy windows stay in a single timeline.
+			args = append(args,
+				"-output_ts_offset", fmt.Sprintf("%.6f", start_ref),
+			)
+		}
+	} else {
+		// this makes behaviors consistent between soft and hardware decodes.
+		// this also means that after a -ss 50, the output video will start at 50s
+		args = append(args, "-start_at_zero")
+	}
 	args = append(args, ts.handle.getTranscodeArgs(toSegmentStr(segments))...)
 	args = append(args,
 		"-f", "segment",
