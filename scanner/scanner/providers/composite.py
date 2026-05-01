@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import override
 
 from langcodes import Language
@@ -9,6 +10,8 @@ from scanner.utils import uniq_by
 from ..models.movie import Movie, SearchMovie
 from ..models.serie import SearchSerie, Serie
 from .provider import Provider
+
+logger = getLogger(__name__)
 
 
 class CompositeProvider(Provider):
@@ -61,7 +64,10 @@ class CompositeProvider(Provider):
 			ret.entries, lambda x: (x.season_number, x.episode_number, x.number, x.slug)
 		)
 
-		ret = await anilist_enrich_ids(ret)
+		try:
+			ret = await anilist_enrich_ids(ret)
+		except Exception as e:
+			logger.error("Could not enrich with anidb ids", exc_info=e)
 
 		# themoviedb has better global info than tvdb but tvdb has better entries info
 		info = await self._themoviedb.get_serie(
