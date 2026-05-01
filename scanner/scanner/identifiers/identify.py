@@ -18,10 +18,12 @@ pipeline: list[Callable[[str, Guess], Awaitable[Guess]]] = [
 
 
 async def identify(path: str) -> Video:
-	raw = guessit(
-		path,
-		expected_titles=list((await get_anilist_data()).titles.keys()),
-	)
+	try:
+		titles = list((await get_anilist_data()).titles.keys())
+	except Exception as e:
+		logger.error("Failed to get expected titles", exc_info=e)
+		titles = []
+	raw = guessit(path, expected_titles=titles)
 
 	# guessit should only return one (according to the doc)
 	title = raw.get("title", [])[0]
