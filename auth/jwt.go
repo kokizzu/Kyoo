@@ -188,24 +188,34 @@ func (h *Handler) refreshJwt(ctx context.Context, jwtToken string) (string, erro
 		return "", echo.NewHTTPError(http.StatusForbidden, "Invalid token id in JWT")
 	}
 
-	session, err := h.db.GetUserFromSessionId(ctx, sid)
-	if err != nil {
-		return "", echo.NewHTTPError(http.StatusForbidden, "Session not found")
+	var newClaims jwt.MapClaims
+
+	if sid.String() != "00000000-0000-0000-0000-000000000000" {
+		session, err := h.db.GetUserFromSessionId(ctx, sid)
+		if err != nil {
+			return "", echo.NewHTTPError(http.StatusForbidden, "Session not found")
+		}
+
+		if session.LastUsed.Add(h.config.ExpirationDelay).Compare(time.Now().UTC()) < 0 {
+			return "", echo.NewHTTPError(http.StatusForbidden, "Session has expired")
+		}
+
+		go func() {
+			h.db.TouchSession(ctx, session.Pk)
+			h.db.TouchUser(ctx, session.User.Pk)
+		}()
+
+		newClaims = maps.Clone(session.User.Claims)
+		newClaims["username"] = session.User.Username
+		newClaims["sub"] = session.User.Id.String()
+		newClaims["sid"] = session.Id.String()
+	} else {
+		newClaims = maps.Clone(h.config.GuestClaims)
+		newClaims["username"] = "guest"
+		newClaims["sub"] = "00000000-0000-0000-0000-000000000000"
+		newClaims["sid"] = "00000000-0000-0000-0000-000000000000"
 	}
 
-	if session.LastUsed.Add(h.config.ExpirationDelay).Compare(time.Now().UTC()) < 0 {
-		return "", echo.NewHTTPError(http.StatusForbidden, "Session has expired")
-	}
-
-	go func() {
-		h.db.TouchSession(ctx, session.Pk)
-		h.db.TouchUser(ctx, session.User.Pk)
-	}()
-
-	newClaims := maps.Clone(session.User.Claims)
-	newClaims["username"] = session.User.Username
-	newClaims["sub"] = session.User.Id.String()
-	newClaims["sid"] = session.Id.String()
 	newClaims["jti"] = jti.String()
 	newClaims["iss"] = h.config.PublicUrl
 	newClaims["iat"] = &jwt.NumericDate{
