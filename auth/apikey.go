@@ -206,6 +206,7 @@ func (h *Handler) createApiJwt(ctx context.Context, apikey string) (string, erro
 	claims["username"] = key.Name
 	claims["sub"] = key.Id
 	claims["sid"] = key.Id
+	claims["jti"] = uuid.New().String()
 	claims["iss"] = h.config.PublicUrl
 	claims["iat"] = &jwt.NumericDate{
 		Time: time.Now().UTC(),

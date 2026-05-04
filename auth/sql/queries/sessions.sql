@@ -44,6 +44,19 @@ where s.user_pk = u.pk
 returning
 	s.*;
 
+-- name: GetUserFromSessionId :one
+select
+	s.pk,
+	s.id,
+	s.last_used,
+	sqlc.embed(u)
+from
+	keibi.users as u
+	inner join keibi.sessions as s on u.pk = s.user_pk
+where
+	s.id = $1
+limit 1;
+
 -- name: ClearOtherSessions :exec
 delete from keibi.sessions as s using keibi.users as u
 where s.user_pk = u.pk
