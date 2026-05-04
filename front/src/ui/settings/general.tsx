@@ -11,6 +11,7 @@ import { Preference, SettingsContainer } from "./base";
 
 export const GeneralSettings = () => {
 	const { t, i18n } = useTranslation();
+	const queryClient = useQueryClient();
 	const theme = useUniwind();
 	const getLanguageName = useLanguageName();
 
@@ -41,7 +42,10 @@ export const GeneralSettings = () => {
 				<Select
 					label={t("settings.general.language.label")}
 					value={i18n.resolvedLanguage!}
-					onValueChange={(value) => i18n.changeLanguage(value)}
+					onValueChange={(value) => {
+						i18n.changeLanguage(value);
+						queryClient.invalidateQueries();
+					}}
 					values={supportedLanguages}
 					getLabel={(key) => getLanguageName(key) ?? key}
 				/>

@@ -7,6 +7,7 @@ import {
 	useMutation as useRQMutation,
 } from "@tanstack/react-query";
 import { useCallback, useContext, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Platform } from "react-native";
 import type { z } from "zod/v4";
 import { type KyooError, type Page, Paged } from "~/models";
@@ -28,6 +29,7 @@ export const queryFn = async <Parser extends z.ZodTypeAny>(context: {
 	formData?: FormData;
 	plainText?: boolean;
 	authToken: string | null;
+	lang?: string;
 	parser: Parser | null;
 	signal?: AbortSignal;
 }): Promise<z.infer<Parser>> => {
@@ -47,6 +49,7 @@ export const queryFn = async <Parser extends z.ZodTypeAny>(context: {
 					? { Authorization: `Bearer ${context.authToken}` }
 					: {}),
 				...(context.body ? { "Content-Type": "application/json" } : {}),
+				"Accept-Language": context.lang ?? "en",
 			},
 			signal: context.signal,
 		});
@@ -170,6 +173,7 @@ export const keyToUrl = (key: ReturnType<typeof toQueryKey>) => {
 };
 
 export const useFetch = <Data,>(query: QueryIdentifier<Data>) => {
+	const { i18n } = useTranslation();
 	let { apiUrl, authToken, selectedAccount } = useContext(AccountContext);
 	if (query.options?.apiUrl) apiUrl = query.options.apiUrl;
 	const key = toQueryKey({ apiUrl, path: query.path, params: query.params });
@@ -182,6 +186,7 @@ export const useFetch = <Data,>(query: QueryIdentifier<Data>) => {
 				parser: query.parser,
 				signal: ctx.signal,
 				authToken: authToken ?? null,
+				lang: i18n.resolvedLanguage,
 				...query.options,
 			}) as Promise<Data>,
 		placeholderData: query.placeholderData as any,
@@ -230,6 +235,7 @@ export const useRefresh = (queries: QueryIdentifier<unknown>[]) => {
 };
 
 export const useInfiniteFetch = <Data,>(query: QueryIdentifier<Data>) => {
+	const { i18n } = useTranslation();
 	let { apiUrl, authToken } = useContext(AccountContext);
 	if (query.options?.apiUrl) apiUrl = query.options.apiUrl;
 	const key = toQueryKey({ apiUrl, path: query.path, params: query.params });
@@ -242,6 +248,7 @@ export const useInfiniteFetch = <Data,>(query: QueryIdentifier<Data>) => {
 				parser: query.parser ? Paged(query.parser) : null,
 				signal: ctx.signal,
 				authToken: authToken ?? null,
+				lang: i18n.resolvedLanguage,
 				...query.options,
 			}) as Promise<Page<Data>>,
 		getNextPageParam: (page: Page<Data>) => page?.next || undefined,
@@ -331,6 +338,7 @@ export const useMutation = <Ret = unknown, T = void, QueryRet = void>({
 	optimisticKey?: QueryIdentifier<unknown>;
 	invalidate: string[] | null;
 }) => {
+	const { i18n } = useTranslation();
 	const { apiUrl, authToken } = useContext(AccountContext);
 	const queryClient = useQueryClient();
 	const mutation = useRQMutation({
@@ -346,6 +354,7 @@ export const useMutation = <Ret = unknown, T = void, QueryRet = void>({
 				body,
 				formData,
 				authToken,
+				lang: i18n.resolvedLanguage,
 				parser: parser ?? null,
 			});
 		},
