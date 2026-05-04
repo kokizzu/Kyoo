@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"maps"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 )
@@ -19,7 +21,7 @@ type Jwt struct {
 }
 
 // @Summary      Get JWT
-// @Description  Convert a session token or an API key to a short lived JWT.
+// @Description  Convert a session token or an API key to a short lived JWT. Passing an existing JWT will refresh it.
 // @Tags         jwt
 // @Produce      json
 // @Security     Token
@@ -69,6 +71,12 @@ func (h *Handler) CreateJwt(c *echo.Context) error {
 		if jwt == nil {
 			return echo.NewHTTPError(http.StatusUnauthorized, "Guests not allowed.")
 		}
+	} else if _, err := base64.RawURLEncoding.DecodeString(token); err != nil {
+		tkn, err := h.refreshJwt(ctx, token)
+		if err != nil {
+			return err
+		}
+		jwt = &tkn
 	} else {
 		tkn, err := h.createJwt(ctx, token)
 		if err != nil {
@@ -94,6 +102,7 @@ func (h *Handler) createGuestJwt() *string {
 	claims["username"] = "guest"
 	claims["sub"] = "00000000-0000-0000-0000-000000000000"
 	claims["sid"] = "00000000-0000-0000-0000-000000000000"
+	claims["jti"] = uuid.New().String()
 	claims["iss"] = h.config.PublicUrl
 	claims["iat"] = &jwt.NumericDate{
 		Time: time.Now().UTC(),
@@ -128,6 +137,7 @@ func (h *Handler) createJwt(ctx context.Context, token string) (string, error) {
 	claims["username"] = session.User.Username
 	claims["sub"] = session.User.Id.String()
 	claims["sid"] = session.Id.String()
+	claims["jti"] = uuid.New().String()
 	claims["iss"] = h.config.PublicUrl
 	claims["iat"] = &jwt.NumericDate{
 		Time: time.Now().UTC(),
@@ -144,13 +154,92 @@ func (h *Handler) createJwt(ctx context.Context, token string) (string, error) {
 	return t, nil
 }
 
+func (h *Handler) refreshJwt(ctx context.Context, jwtToken string) (string, error) {
+	token, err := jwt.ParseWithClaims(jwtToken, jwt.MapClaims{}, func(t *jwt.Token) (any, error) {
+		if t.Method.Alg() != "RS256" {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return h.config.JwtPublicKey, nil
+	})
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusForbidden, "Invalid JWT")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", echo.NewHTTPError(http.StatusForbidden, "Invalid JWT claims")
+	}
+
+	sidStr, ok := claims["sid"].(string)
+	if !ok {
+		return "", echo.NewHTTPError(http.StatusForbidden, "Missing session id in JWT")
+	}
+	sid, err := uuid.Parse(sidStr)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusForbidden, "Invalid session id in JWT")
+	}
+
+	jtiStr, ok := claims["jti"].(string)
+	if !ok {
+		return "", echo.NewHTTPError(http.StatusForbidden, "Missing token id in JWT")
+	}
+	jti, err := uuid.Parse(jtiStr)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusForbidden, "Invalid token id in JWT")
+	}
+
+	var newClaims jwt.MapClaims
+
+	if sid.String() != "00000000-0000-0000-0000-000000000000" {
+		session, err := h.db.GetUserFromSessionId(ctx, sid)
+		if err != nil {
+			return "", echo.NewHTTPError(http.StatusForbidden, "Session not found")
+		}
+
+		if session.LastUsed.Add(h.config.ExpirationDelay).Compare(time.Now().UTC()) < 0 {
+			return "", echo.NewHTTPError(http.StatusForbidden, "Session has expired")
+		}
+
+		go func() {
+			h.db.TouchSession(ctx, session.Pk)
+			h.db.TouchUser(ctx, session.User.Pk)
+		}()
+
+		newClaims = maps.Clone(session.User.Claims)
+		newClaims["username"] = session.User.Username
+		newClaims["sub"] = session.User.Id.String()
+		newClaims["sid"] = session.Id.String()
+	} else {
+		newClaims = maps.Clone(h.config.GuestClaims)
+		newClaims["username"] = "guest"
+		newClaims["sub"] = "00000000-0000-0000-0000-000000000000"
+		newClaims["sid"] = "00000000-0000-0000-0000-000000000000"
+	}
+
+	newClaims["jti"] = jti.String()
+	newClaims["iss"] = h.config.PublicUrl
+	newClaims["iat"] = &jwt.NumericDate{
+		Time: time.Now().UTC(),
+	}
+	newClaims["exp"] = &jwt.NumericDate{
+		Time: time.Now().UTC().Add(time.Hour),
+	}
+	newJwt := jwt.NewWithClaims(jwt.SigningMethodRS256, newClaims)
+	newJwt.Header["kid"] = h.config.JwtKid
+	t, err := newJwt.SignedString(h.config.JwtPrivateKey)
+	if err != nil {
+		return "", err
+	}
+	return t, nil
+}
+
 // only used for the swagger doc
 type JwkSet struct {
 	Keys []struct {
 		E      string   `json:"e" example:"AQAB"`
 		KeyOps []string `json:"key_ops" example:"[verify]"`
 		Kty    string   `json:"kty" example:"RSA"`
-		N      string   `json:"n" example:"oBcXcJUR-Sb8_b4qIj28LRAPxdF_6odRr52K5-ymiEkR2DOlEuXBtM-biWxPESW-U-zhfHzdVLf6ioy5xL0bJTh8BMIorkrDliN3vb81jCvyOMgZ7ATMJpMAQMmSDN7sL3U45r22FaoQufCJMQHmUsZPecdQSgj2aFBiRXxsLleYlSezdBVT_gKH-coqeYXSC_hk-ezSq4aDZ10BlDnZ-FA7-ES3T7nBmJEAU7KDAGeSvbYAfYimOW0r-Vc0xQNuwGCfzZtSexKXDbYbNwOVo3SjfCabq-gMfap_owcHbKicGBZu1LDlh7CpkmLQf_kv6GihM2LWFFh6Vwg2cltiwF22EIPlUDtYTkUR0qRkdNJaNkwV5Vv_6r3pzSmu5ovRriKtlrvJMjlTnLb4_ltsge3fw5Z34cJrsp094FbUc2O6Or4FGEXUldieJCnVRhs2_h6SDcmeMXs1zfvE5GlDnq8tZV6WMJ5Sb4jNO7rs_hTkr23_E6mVg-DdtozGfqzRzhIjPym6D_jVfR6dZv5W0sKwOHRmT7nYq-C7b2sAwmNNII296M4Rq-jn0b5pgSeMDYbIpbIA4thU8LYU0lBZp_ZVwWKG1RFZDxz3k9O5UVth2kTpTWlwn0hB1aAvgXHo6in1CScITGA72p73RbDieNnLFaCK4xUVstkWAKLqPxs"`
+		N      string   `json:"n" example:"oBcXcJUR-Sb8_b4qIj28LRAPxdF_6odRr52K5-ymiEkR2DOlEuXBtM-biWxPESW-U-zhfHzdVLf6ioy5xL0bJTh8BMIorkrDliN3vb81jCvyOMgZ7ATMJpMAQMmSDN7sL3U45r22FaoQufCJMQHmUsZPecdQSgj2aFBiRXxsLleYlSezdBVT_gKH-coqeYXSC_hk-ezSq4aDZ10BlDnZ-FA7-ES3T7nBmJEAU7KDAGeSvbYAfYimOW0r-Vc0xQNuwGCfzZtSexKXDbYbNwOVo3SjfCabq-gMfap_owcHbKicGBZu1LDlh7CpkmLQf_kv6GihM2LWFFh6Vwg2cltiwF22EIPlUDtYTkUR0qRkdNJaNkwV5Vv_6r3pzSmu5ovRriKtlrvJMjlTnLb4_ltsge3fw5Z34cJrsp094FbUc2O6Or4FGEXUldieJCnVRhs2_h6SDcmeMXs1zfvE5GlDnq8tZV6WMJ5Sb4jNO7rs_hTkr23_E6mVg-DdtRS256ozGfqzRzhIjPym6D_jVfR6dZv5W0sKwOHRmT7nYq-C7b2sAwmNNII296M4Rq-jn0b5pgSeMDYbIpbIA4thU8LYU0lBZp_ZVwWKG1RFZDxz3k9O5UVth2kTpTWlwn0hB1aAvgXHo6in1CScITGA72p73RbDieNnLFaCK4xUVstkWAKLqPxs"`
 		Use    string   `json:"use" example:"sig"`
 	}
 }

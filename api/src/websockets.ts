@@ -2,7 +2,7 @@ import { getLogger } from "@logtape/logtape";
 import type { TObject, TString } from "@sinclair/typebox";
 import { eq } from "drizzle-orm";
 import Elysia, { type TSchema, t } from "elysia";
-import { auth } from "./auth";
+import { auth, verifyJwt } from "./auth";
 import { updateProgress } from "./controllers/profiles/history";
 import { getOrCreateProfile } from "./controllers/profiles/profile";
 import { prepareVideo } from "./controllers/video-metadata";
@@ -13,6 +13,7 @@ const logger = getLogger();
 
 const actionMap = {
 	ping: handler({
+		skipRefresh: true,
 		message(ws) {
 			ws.send({ action: "ping", response: "pong" });
 		},
@@ -90,6 +91,30 @@ export const appWs = baseWs.ws("/ws", {
 	},
 	async message(ws, { action, ...body }) {
 		const handler = actionMap[action as keyof typeof actionMap];
+		if (!handler.skipRefresh) {
+			try {
+				const resp = await fetch(
+					new URL("/auth/jwt", process.env.AUTH_SERVER ?? "http://auth:4568"),
+					{
+						headers: {
+							Authorization: ws.data.headers.authorization!,
+						},
+					},
+				);
+				if (resp.ok) {
+					const data = (await resp.json()) as { token?: string };
+					if (data.token) {
+						const ret = await verifyJwt(data.token);
+						ws.data.jwt = ret.jwt as typeof ws.data.jwt;
+						ws.data.headers.authorization =
+							`Bearer ${data.token}` as typeof ws.data.headers.authorization;
+					}
+				}
+			} catch (e) {
+				logger.error("Failed to refresh jwt: {err}", { err: e });
+				// If refresh fails, continue with the old JWT
+			}
+		}
 		for (const perm of handler.permissions ?? []) {
 			if (!ws.data.jwt.permissions.includes(perm)) {
 				ws.send({
@@ -108,6 +133,7 @@ type Ws = Parameters<NonNullable<Parameters<typeof baseWs.ws>[1]["open"]>>[0];
 function handler<Schema extends TSchema = TObject<{}>>(ret: {
 	body?: Schema;
 	permissions?: string[];
+	skipRefresh?: boolean;
 	message: (ws: Ws, body: Schema["static"]) => void | Promise<void>;
 }) {
 	return ret;
