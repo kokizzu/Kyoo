@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEvent, type VideoPlayer } from "react-native-video";
 import type { Chapter } from "~/models";
-import { Button } from "~/primitives";
+import { Button, P } from "~/primitives";
 import { useAccount } from "~/providers/account-context";
 import { useFetch } from "~/query";
 import { Info } from "~/ui/info";
@@ -76,12 +76,20 @@ export const SkipChapterButton = ({
 
 	return (
 		<Button
-			text={t(`player.chapters.skip`, { type: chapter.type })}
 			onPress={skipChapter}
 			className={cn(
 				"absolute right-safe bottom-2/10 m-8",
 				"z-20 bg-slate-900/70 px-4 py-2",
 			)}
-		/>
+		>
+			<P
+				className={cn(
+					"text-center text-slate-300 dark:text-slate-300",
+					"group-focus-within:text-slate-200 group-hover:text-slate-200",
+				)}
+			>
+				{t(`player.chapters.skip`, { type: chapter.type })}
+			</P>
+		</Button>
 	);
 };
