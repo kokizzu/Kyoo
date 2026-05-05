@@ -43,7 +43,7 @@ For `docker-compose.dev.yml` with API key auth via Traefik:
 
 ```bash
 TRANSCODER_BASE_URL="http://localhost:8901/video" \
-TRANSCODER_MEDIA_PATH="/video/Akudama Drive S01E01.mkv" \
+TRANSCODER_MEDIA_PATH="/video/The legend of korra S04E05.mkv" \
 TRANSCODER_API_KEY="admin" \
 uv run --with pytest pytest transcoder/tests/hls_validation -q
 ```

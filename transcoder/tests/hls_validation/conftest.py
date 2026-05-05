@@ -37,9 +37,12 @@ def test_config() -> TestConfig:
         )
 
     api_key = os.getenv("TRANSCODER_API_KEY", "").strip()
+    auth_token = os.getenv("TRANSCODER_AUTH_TOKEN", "").strip()
     headers: dict[str, str] = {}
     if api_key:
         headers["X-Api-Key"] = api_key
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
 
     return TestConfig(
         base_url=os.getenv(
